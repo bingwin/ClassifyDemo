@@ -5,9 +5,12 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -16,10 +19,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
-import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -36,13 +39,12 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import static android.widget.Toast.LENGTH_SHORT;
-import static com.example.admin.classifydemo.MyService.cnt;
+import static com.example.admin.classifydemo.MyService.getContext;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,12 +62,27 @@ public class MainActivity extends AppCompatActivity {
     AccessibilityNodeInfo editInfo;
 
 
+    ContentResolver resolver;
+    Uri uri = Uri.parse("content://com.example.admin.classifydemo.provider");
+
+
+    FileOutputStream fos1,fos2,fos3,fos4;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         btnSelect = findViewById(R.id.select);
         tvFilePath = findViewById(R.id.tv_hint);
+
+        resolver = this.getContentResolver();
+
+        // 初始化文件
+        try {
+            initFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         btnSelect.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -74,6 +91,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Process.myPid();
+        Log.i("xyz","MainActivity pid = "+Process.myPid());
         btnStart = findViewById(R.id.start);
         btnStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -93,109 +112,294 @@ public class MainActivity extends AppCompatActivity {
                     }else {
                         Toast.makeText(MainActivity.this,"微信尚未安装",Toast.LENGTH_SHORT).show();
                     }
-
                 }
             }
         });
     }
 
+    private void initFile() throws IOException {
+        //  路径名
+        File file  = new File("/sdcard/tmp/");
+        if (!file.exists()){
+            file.mkdirs();  // 创建目录
+        }
+
+        File file1 = new File(file,"nonexistent.txt");
+        if (!file1.exists()) {
+            file1.createNewFile();
+        }
+
+        File file2 = new File(file,"abnormal.txt");
+        if (!file2.exists()) {
+            file2.createNewFile();
+        }
+
+        File file3 = new File(file,"frequent.txt");
+        if (!file3.exists()) {
+            file3.createNewFile();
+        }
+
+
+        File file4 = new File(file,"wxid.txt");
+        if (!file4.exists()) {
+            file4.createNewFile();
+        }
+
+        fos1 = new FileOutputStream(file1,true);// 这里的第二个参数代表追加还是覆盖，true为追加，false为覆盖
+        fos2 = new FileOutputStream(file2,true);
+        fos3 = new FileOutputStream(file3,true);
+        fos4 = new FileOutputStream(file4,true);
+    }
+
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void startClassify() {
        for (String info : list){
-           sleepRandom();
+
            setCnt(0);
            gotoSearchUI();
-
-           waitfor(20000);
+           sleepRandom();
+           waitFor(20000);
            if (getCnt() >= 1){
+               Log.i("xyxz","输入手机号界面");
                // 找到输入框并填入手机号
                findEditAndInputInfo(info);
                sleepRandom();
+
                setCnt(0);
                // 按两下回车确定
                pushEnter();
-               waitfor(20000);
+               waitFor(20000);
                if (getCnt() >= 1 ){
+                   Log.i("xyxz","具体界面");
                    int type = 0;
-                   // 获取当前界面信息
-                    if (hasAddBtn()){  // 界面中有添加按钮,用户存在，添加不频繁。第4 种情况
-                        sleepRandom();
-                        finishAndReturn();
-                        sleepRandom();
-                        finishAndReturn();
-                    }else if (isFrequent()){  // 操作频繁，用户存在
-                        type = 3;
-                        sleepRandom();
-                        finishAndReturn();
-                    }else if (isAbnormal()){  // 用户状态异常
-                        type = 2;
-                        sleepRandom();
-                        finishAndReturn();
-                    }else if (isNonexistent()){ // 用户不存在
-                        type = 1;
-                        sleepRandom();
-                        finishAndReturn();
-                    }
-                   // 判断结果,输出到文本中
-                   try {
-                       writeToLocal(type,info);
-                   } catch (IOException e) {
-                       e.printStackTrace();
+//                   // 获取当前界面信息
+//                   if (isFrequent()){  // 操作频繁，用户存在
+//                       type = 3;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+//                   }else if (isAbnormal()){  // 用户状态异常
+//                       type = 2;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+//                   }else if (isNonexistent()){ // 用户不存在
+//                       type = 1;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+
+                   switch (hasAddBtn()){
+                       case 0:
+                           Log.i("xyz","网络异常，hasButton返回0");
+
+                       case 1:
+                           type = 1;
+                           finishAndReturn();
+                           // 判断结果,输出到文本中
+                           try {
+                               writeToLocal(type,info);
+                           } catch (IOException e) {
+                               e.printStackTrace();
+                           }
+                           break;
+
+                       case 2:
+                           type = 2;
+                           finishAndReturn();
+                           // 判断结果,输出到文本中
+                           try {
+                               writeToLocal(type,info);
+                           } catch (IOException e) {
+                               e.printStackTrace();
+                           }
+                           break;
+
+                       case 3:
+                           type = 3;
+                           finishAndReturn();
+                           // 判断结果,输出到文本中
+                           try {
+                               writeToLocal(type,info);
+                           } catch (IOException e) {
+                               e.printStackTrace();
+                           }
+                           break;
+
+                       case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
+                           Log.i("xyxz","用户信息存在");
+                           // 获取到地区
+                           CharSequence area = getArea();
+
+                           Cursor cursor = resolver.query(uri,null,null,null,null);
+                           Bundle bundle = cursor.getExtras();
+
+
+                           // 等待hook那边创建文件
+                           waitForHook(20000);
+                           if (getFlag() == 1) {
+                               Log.i("xyxz", "进入查询的代码");
+
+                               // 查询数据并更新flag
+                               String wxid = bundle.getString("wxid");
+                               int sex = bundle.getInt("sex");
+                               String nickName = bundle.getString("nickName");
+                               String signature = bundle.getString("signature");  //   个性签名
+                               String v1 = bundle.getString("v1");               // v1 值
+                               String v2 = bundle.getString("v2");             // v2 值
+
+                               try {
+                                   writeToLocalScene2(info, wxid, area, sex, nickName, signature, v1, v2);
+                               } catch (IOException e) {
+                                   e.printStackTrace();
+                               }
+
+                               // 重新置为0
+                               ContentValues values = new ContentValues();
+                               values.put("flag", 0);
+                               resolver.update(uri, values, null, null);
+
+                               finishAndReturn();
+                               sleepRandom();
+                               finishAndReturn();
+                               break;
+
+                           }
                    }
+
+
                }
            }
        }
     }
 
-    private void writeToLocal(int type,String info) throws IOException {
 
-        //  路径名
-        File file = new File("/sdcard/tmp/");
-        if (!file.exists()){
-            file.mkdirs();  // 创建目录
-        }
-        File localFile = null;
-        if (type == 1){         // 用户不存在
-            // 具体文件名 , 路径 + 文件
-            localFile = new File(file,"nonexistent.txt");
-            if (!localFile.exists()) {
-                localFile.createNewFile();
-            }
-        }else if (type == 2){   // 用户状态异常
-            localFile = new File(file,"abnormal.txt");
-            if (!localFile.exists()) {
-                localFile.createNewFile();
-            }
-        }else if (type == 3){   // 用户存在，但是频繁
-            localFile = new File(file,"frequent.txt");
-            if (!localFile.exists()) {
-                localFile.createNewFile();
-            }
-        }else if (type == 4){   // 用户存在，不会频繁，获取信息
-            localFile = new File(file,"wxid.txt");
-            if (!localFile.exists()) {
-                localFile.createNewFile();
-            }
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append(info +"\n");
-        FileOutputStream fos = new FileOutputStream(localFile,true); // 这里的第二个参数代表追加还是覆盖，true为追加，false为覆盖
-        fos.write(sb.toString().getBytes());
-        fos.close();
-
+    private int getFlag(){
+        int i = 0;
+        Cursor cursor = resolver.query(uri,null,null,null,null);
+        Bundle bundle = cursor.getExtras();
+        i = bundle.getInt("flag");
+        return i;
     }
 
+    private void waitForHook(long overTime) {
+        long before = System.currentTimeMillis();
+        do{
+            long now = System.currentTimeMillis();
+            if (now - before >= overTime){
+                Log.i("xyz","等待超时");
+                return;
+            }
+            SystemClock.sleep(1000);
+        }while ( getFlag() == 0 );
+    }
+
+    private void writeToLocalScene2(String info, String wxid, CharSequence area, int sex, String nickName,String signature, String v1, String v2) throws IOException {
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(info +"-----" + wxid +"-----"+ area +"-----"+ sex +"----"+ nickName+ "----"+ signature +"----"+ v1 +"----"+ v2 +"\n");
+        fos4.write(sb.toString().getBytes());
+    }
+
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+    private CharSequence getArea() {
+        AccessibilityNodeInfo root = getRoot();
+        AccessibilityNodeInfo areaInfo = findArea(root);
+        if (areaInfo!=null){
+            String area = areaInfo.toString();
+            Log.i("xyz","获取到地区： "+area);
+            return areaInfo.getText();
+        }else {
+            return " ";
+        }
+    }
+
+    private AccessibilityNodeInfo findArea(AccessibilityNodeInfo root) {
+        if (root == null){
+            return null;
+        }
+        AccessibilityNodeInfo res = null;
+        for (int i = 0; i < root.getChildCount(); i++) {
+            AccessibilityNodeInfo nodeInfo = root.getChild(i);
+            if (nodeInfo.getClassName().equals("android.widget.TextView")) {
+                Log.i("xyz","获取到TextView");
+                Log.i("xyz","nodeInfo = "+nodeInfo);
+                Rect rect = new Rect();
+                nodeInfo.getBoundsInScreen(rect);
+                int x = rect.centerX();
+                int y = rect.centerY();
+                if (84 < x  && x<138 &&197 < y && y < 215) {
+                    res =  nodeInfo;
+                    Log.i("xyz","找到地区值");
+                    break; // 这里必须有这个break，表示找到返回键之后就会打破循环，将找到的值返回
+                }
+            }else {
+                res = findArea(nodeInfo);
+                if (res != null){
+                    return res;
+                }
+            }
+        }
+        return res;
+    }
+
+
+
+    private void writeToLocal(int type,String info) throws IOException {
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(info +"\n");
+
+        if (type == 1){         // 用户不存在
+            fos1.write(sb.toString().getBytes());
+        }else if (type == 2){   // 用户状态异常
+            fos2.write(sb.toString().getBytes());
+        }else if (type == 3){   // 用户存在，但是频繁
+            fos3.write(sb.toString().getBytes());
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            fos1.close();
+            fos2.close();
+            fos3.close();
+            fos4.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     AccessibilityNodeInfo returnInfo;
     private void finishAndReturn(){
 
         Log.i("xyz","开始查找返回键");
-        // 找到左上角的返回键
-        AccessibilityNodeInfo root = getRoot();
 
-        returnInfo = findReturn(root);
 
-        sleepRandom();
+        do {
+            // 找到左上角的返回键
+            AccessibilityNodeInfo root = getRoot();
+            returnInfo = findReturn(root);
+            SystemClock.sleep(200);
+        }while (returnInfo == null);
+
+
+
         if (returnInfo == null){
             Log.i("xyz","找到的返回为null");
         }else {
@@ -215,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
         AccessibilityNodeInfo res = null;
         for (int i = 0; i < root.getChildCount(); i++) {
             AccessibilityNodeInfo nodeInfo = root.getChild(i);
-            if (nodeInfo.getClassName().equals("android.widget.ImageView")) {
+            if (nodeInfo != null&&nodeInfo.getClassName().equals("android.widget.ImageView") ) {
                 Log.i("xyz","获取到ImageView");
                 Log.i("xyz","nodeInfo = "+nodeInfo);
                 Rect rect = new Rect();
@@ -238,20 +442,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isAbnormal() {
-        AccessibilityNodeInfo root = getRoot();
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
-        long aa = System.currentTimeMillis();
-        do {
-            long bb =  System.currentTimeMillis();
-            if (bb - aa >= 5000){
-                Log.i("xyz","规定时间内找不到文本信息，直接返回false");
-                return false;
-            }
-            list = root.findAccessibilityNodeInfosByText("异常");
-            SystemClock.sleep(200);
-        }while (list == null);
-
+        AccessibilityNodeInfo root = getRoot();
+        list = root.findAccessibilityNodeInfosByText("异常");
         if (list.size() > 0){
             Log.i("xyz","找到异常");
             return true;
@@ -261,20 +455,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isNonexistent() {
-        AccessibilityNodeInfo root = getRoot();
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
-        long aa = System.currentTimeMillis();
-        do {
-            long bb =  System.currentTimeMillis();
-            if (bb - aa >= 5000){
-                Log.i("xyz","规定时间内找不到文本信息，直接返回false");
-                return false;
-            }
-            list = root.findAccessibilityNodeInfosByText("该用户不存在");
-            SystemClock.sleep(200);
-        }while (list == null);
-
+        AccessibilityNodeInfo root = getRoot();
+        list = root.findAccessibilityNodeInfosByText("该用户不存在");
         if (list.size() > 0){
             Log.i("xyz","用户不存在");
             return true;
@@ -284,20 +468,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isFrequent() {
-        AccessibilityNodeInfo root = getRoot();
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
-        long aa = System.currentTimeMillis();
-        do {
-            long bb =  System.currentTimeMillis();
-            if (bb - aa >= 5000){
-                Log.i("xyz","规定时间内找不到文本信息，直接返回false");
-                return false;
-            }
-            list = root.findAccessibilityNodeInfosByText("操作过于频繁");
-            SystemClock.sleep(200);
-        }while (list == null);
-
+        AccessibilityNodeInfo root = getRoot();
+        list = root.findAccessibilityNodeInfosByText("操作过于频繁");
         if (list.size() > 0){
             Log.i("xyz","找到操作频繁");
             return true;
@@ -307,37 +481,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private boolean hasAddBtn() {
-        AccessibilityNodeInfo root = getRoot();
+    private int hasAddBtn() {
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
         long aa = System.currentTimeMillis();
         do {
+            AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
-            if (bb - aa >= 5000){
-                Log.i("xyz","规定时间内找不到添加按钮，直接返回false");
-                return false;
+            if (bb - aa >= 20000){
+                return 0;
             }
+            if (isNonexistent()){
+                return 1;
+            }
+            if (isAbnormal()){
+                return 2;
+            }
+            if (isFrequent()){
+                return 3;
+            }
+
             list = root.findAccessibilityNodeInfosByText("添加");
-            SystemClock.sleep(200);
-        }while (list == null);
+            SystemClock.sleep(500);
+        }while (list == null || list.size() == 0);
 
         if (list.size() > 0){
             Log.i("xyz","找到添加按钮");
-            return true;
+            return 4;
         }else {
-            return false;
+            return 0;
         }
     }
 
+    private void pushEnter() {
+        // 66 回车
+        String adb = "adb shell input keyevent 66";
+        for (int i = 0; i < 3; i++){
+            try {
+                Runtime.getRuntime().exec(adb);
+                Log.i("xyz","执行一次回车");
+                SystemClock.sleep(400); // 睡眠是为了保证能够两次执行
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     private void findEditAndInputInfo(String info) {
-        // 找到界面中的搜索输入框
-        AccessibilityNodeInfo root = getRoot();
+
         do {
+            // 找到界面中的搜索输入框
+            AccessibilityNodeInfo root = getRoot();
             editInfo = findEditText(root);
-            SystemClock.sleep(1000);
+            SystemClock.sleep(200);
         }while (editInfo == null);
+
         // 填入手机号
         ClipboardManager manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         String text = info;
@@ -345,22 +543,6 @@ public class MainActivity extends AppCompatActivity {
         manager.setPrimaryClip(data);
         editInfo.performAction(AccessibilityNodeInfo.ACTION_PASTE);
     }
-
-    private void pushEnter() {
-        // 66 回车
-        String adb = "adb shell input keyevent 66";
-        for (int i = 0; i < 2; i++){
-            try {
-                Runtime.getRuntime().exec(adb);
-                Log.i("xyz","执行一次回车");
-                SystemClock.sleep(300); // 睡眠是为了保证能够两次执行
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-
 
     // 找到输入框
     private AccessibilityNodeInfo findEditText(AccessibilityNodeInfo root) {
@@ -371,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
 
         for (int i = 0; i < root.getChildCount(); i++) {
             AccessibilityNodeInfo nodeInfo = root.getChild(i);
-            if (nodeInfo.getClassName().equals("android.widget.EditText")) {
+            if (nodeInfo!=null && nodeInfo.getClassName().equals("android.widget.EditText")) {
                 Log.i("xyz","获取到editteXt");
                 Log.i("xyz","nodeInfo = "+nodeInfo);
                 Rect rect = new Rect();
@@ -396,7 +578,7 @@ public class MainActivity extends AppCompatActivity {
     // 每次都等待200ms后获取root根节点信息
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private AccessibilityNodeInfo getRoot() {
-        mService = (AccessibilityService) MyService.getContext();
+        mService = (AccessibilityService) getContext();
         AccessibilityNodeInfo root;
         do {
             root = mService.getRootInActiveWindow();
@@ -419,7 +601,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     // 线程睡眠，让出cpu
-    public void waitfor(long overTime){
+    public void waitFor(long overTime){
         long before = System.currentTimeMillis();
         do{
             long now = System.currentTimeMillis();
@@ -427,14 +609,39 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("xyz","等待超时");
                 return;
             }
-            SystemClock.sleep(500);
+            SystemClock.sleep(300);
         }while (getCnt() == 0);
     }
+
+
+    // hook类的等待
+//    public void waitForHook(long overTime){
+//        long before = System.currentTimeMillis();
+//        do{
+//            long now = System.currentTimeMillis();
+//            if (now - before >= overTime){
+//                Log.i("xyz","等待超时");
+//                return;
+//            }
+//            SystemClock.sleep(500);
+//        }while ();
+//    }
+
+//    private boolean isFileCreate() {
+//        File local = new File(file,"tmp.txt");
+//        if (local.exists()){
+//            Log.i("xyz","文件已创建");
+//            return true;
+//        }else {
+//            Log.i("xyz","文件未创建");
+//            return false;
+//        }
+//    }
 
     // 随机睡眠 0.5 到 1.5 秒
     private void sleepRandom(){
         double ran = Math.random();
-        long lon = (long) (500 + ran *1000);
+        long lon = (long) (1000 + ran *1000);
         SystemClock.sleep(lon);
     }
 
