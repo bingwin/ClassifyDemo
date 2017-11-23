@@ -56,7 +56,7 @@ public class MyProvider extends ContentProvider {
 
         MyCursor cursor = new MyCursor();
         cursor.setExtras(extras);
-
+        Log.i("xyzz","contentprovider查询数据");
 
         return cursor;
     }
@@ -93,6 +93,7 @@ public class MyProvider extends ContentProvider {
         editor.putString("v2",v2);
 
         editor.commit();
+        Log.i("xyzz","contentprovider插入数据");
         return null;
     }
 
@@ -108,6 +109,7 @@ public class MyProvider extends ContentProvider {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt("flag",flag);
         editor.commit();
+        Log.i("xyzz","contentprovider更新数据");
         return 0;
     }
 }

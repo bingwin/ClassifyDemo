@@ -18,11 +18,14 @@ import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -39,8 +42,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 import static android.widget.Toast.LENGTH_SHORT;
 import static com.example.admin.classifydemo.MyService.getContext;
@@ -68,6 +74,15 @@ public class MainActivity extends AppCompatActivity {
 
     FileOutputStream fos1,fos2,fos3,fos4;
 
+    TextView tvError;
+
+    TextView tvNum; // 当前数
+    TextView tvSum; // 总数
+
+    Handler handler;
+
+    TextView tvStartTime;
+    TextView tvEndTime;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -93,6 +108,38 @@ public class MainActivity extends AppCompatActivity {
 
         Process.myPid();
         Log.i("xyz","MainActivity pid = "+Process.myPid());
+
+        tvError = findViewById(R.id.error);
+        tvNum = findViewById(R.id.num);
+        tvSum = findViewById(R.id.sum);
+
+        tvStartTime = findViewById(R.id.startTime);
+        tvEndTime = findViewById(R.id.endTime);
+
+
+        handler = new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what){
+                    case 1:
+                        String  s = (String) msg.obj;
+                        tvError.setText(s);
+                        break;
+                    case 2:
+                        int i = msg.arg1;
+                        tvNum.setText(""+i);
+                        Log.i("mdzz","tvNum = "+ i);
+                        break;
+                    case 3:
+                        String s1 = (String) msg.obj;
+                        tvEndTime.setText(s1);
+                        break;
+
+                }
+                super.handleMessage(msg);
+            }
+        };
+
         btnStart = findViewById(R.id.start);
         btnStart.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -101,11 +148,34 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this,"选择文件的列表为空,请检查路径是否正确",Toast.LENGTH_SHORT).show();
                 }else {
                     if (isWxAvailable()){
+
+                        int sum = list.size();
+                        Log.i("mdzz","list = "+ sum);
+                        tvSum.setText(""+sum);
+
+                        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+                        Date curDate = new Date(System.currentTimeMillis());
+                        String date = format.format(curDate);
+                        tvStartTime.setText(date);
+
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
                                 Looper.prepare();
-                                startClassify();  // 开始分类
+                                try {
+                                    startClassify();  // 开始分类
+
+
+
+
+                                } catch (MyTimeoutException e) {
+                                    e.printStackTrace();
+                                    // 更新界面，将错误信息输出到ui界面中
+                                    Message message = new Message();
+                                    message.what = 1;
+                                    message.obj = e.getMessage();
+                                    handler.sendMessage(message);
+                                }
                                 Looper.loop();
                             }
                         }).start();
@@ -152,26 +222,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private void startClassify() {
-       for (String info : list){
+    private void startClassify() throws MyTimeoutException {
 
-           setCnt(0);
-           gotoSearchUI();
-           sleepRandom();
-           waitFor(20000);
-           if (getCnt() >= 1){
-               Log.i("xyxz","输入手机号界面");
-               // 找到输入框并填入手机号
-               findEditAndInputInfo(info);
-               sleepRandom();
+        for (int i = 0; i < list.size(); i++) {
+            String info = list.get(i);
+            setCnt(0);
+            gotoSearchUI();
+            sleepRandom();
+            waitFor(20000);
+            if (getCnt() >= 1){
+                Log.i("xyxz","输入手机号界面");
+                // 找到输入框并填入手机号
+                findEditAndInputInfo(info);
+                sleepRandom();
 
-               setCnt(0);
-               // 按两下回车确定
-               pushEnter();
-               waitFor(20000);
-               if (getCnt() >= 1 ){
-                   Log.i("xyxz","具体界面");
-                   int type = 0;
+                setCnt(0);
+                // 按两下回车确定
+                pushEnter();
+                waitFor(20000);
+                if (getCnt() >= 1 ){
+                    Log.i("xyxz","具体界面");
+                    int type = 0;
 //                   // 获取当前界面信息
 //                   if (isFrequent()){  // 操作频繁，用户存在
 //                       type = 3;
@@ -201,108 +272,122 @@ public class MainActivity extends AppCompatActivity {
 //                           e.printStackTrace();
 //                       }
 
-                   switch (hasAddBtn()){
-                       case 0:
-                           Log.i("xyz","网络异常，hasButton返回0");
+                    switch (hasAddBtn()){
 
-                       case 1:
-                           type = 1;
-                           finishAndReturn();
-                           // 判断结果,输出到文本中
-                           try {
-                               writeToLocal(type,info);
-                           } catch (IOException e) {
-                               e.printStackTrace();
-                           }
-                           break;
+                        case 1: // 用户不存在
+                            type = 1;
+                            finishAndReturn();
+                            // 判断结果,输出到文本中
+                            try {
+                                writeToLocal(type,info);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            break;
 
-                       case 2:
-                           type = 2;
-                           finishAndReturn();
-                           // 判断结果,输出到文本中
-                           try {
-                               writeToLocal(type,info);
-                           } catch (IOException e) {
-                               e.printStackTrace();
-                           }
-                           break;
+                        case 2:// 用户状态异常
+                            type = 2;
+                            finishAndReturn();
+                            // 判断结果,输出到文本中
+                            try {
+                                writeToLocal(type,info);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            break;
 
-                       case 3:
-                           type = 3;
-                           finishAndReturn();
-                           // 判断结果,输出到文本中
-                           try {
-                               writeToLocal(type,info);
-                           } catch (IOException e) {
-                               e.printStackTrace();
-                           }
-                           break;
+                        case 3:// 操作频繁，用户存在
+                            type = 3;
+                            finishAndReturn();
+                            // 判断结果,输出到文本中
+                            try {
+                                writeToLocal(type,info);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            break;
 
-                       case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
-                           Log.i("xyxz","用户信息存在");
-                           // 获取到地区
-                           CharSequence area = getArea();
+                        case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
+                            Log.i("xyxz","用户信息存在");
 
-                           Cursor cursor = resolver.query(uri,null,null,null,null);
-                           Bundle bundle = cursor.getExtras();
+                            Cursor cursor = resolver.query(uri,null,null,null,null);
+                            Log.i("xyzz","activity查询数据");
+                            Bundle bundle = cursor.getExtras();
 
+                            // 等待hook那边创建文件
+                            waitForHook(20000);
+                            if (getFlag() == 1) {
+                                Log.i("xyxz", "进入查询的代码");
 
-                           // 等待hook那边创建文件
-                           waitForHook(20000);
-                           if (getFlag() == 1) {
-                               Log.i("xyxz", "进入查询的代码");
+                                // 查询数据并更新flag
+                                String wxid = bundle.getString("wxid");
+                                int sex = bundle.getInt("sex");
+                                String nickName = bundle.getString("nickName");
+                                String signature = bundle.getString("signature");  //   个性签名
+                                String v1 = bundle.getString("v1");               // v1 值
+                                String v2 = bundle.getString("v2");             // v2 值
 
-                               // 查询数据并更新flag
-                               String wxid = bundle.getString("wxid");
-                               int sex = bundle.getInt("sex");
-                               String nickName = bundle.getString("nickName");
-                               String signature = bundle.getString("signature");  //   个性签名
-                               String v1 = bundle.getString("v1");               // v1 值
-                               String v2 = bundle.getString("v2");             // v2 值
+                                // 获取到地区
+                                CharSequence area = getArea();;
 
-                               try {
-                                   writeToLocalScene2(info, wxid, area, sex, nickName, signature, v1, v2);
-                               } catch (IOException e) {
-                                   e.printStackTrace();
-                               }
+                                try {
+                                    writeToLocalScene2(info, wxid, area, sex, nickName, signature, v1, v2);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
 
-                               // 重新置为0
-                               ContentValues values = new ContentValues();
-                               values.put("flag", 0);
-                               resolver.update(uri, values, null, null);
+                                // 重新置为0
+                                ContentValues values = new ContentValues();
+                                values.put("flag", 0);
+                                resolver.update(uri, values, null, null);
 
-                               finishAndReturn();
-                               sleepRandom();
-                               finishAndReturn();
-                               break;
+                                finishAndReturn();
+                                sleepRandom();
+                                finishAndReturn();
+                            }
+                            break;
 
-                           }
-                   }
+                    }
 
+                }
+            }
 
-               }
-           }
+            Message message = new Message();
+            message.what = 2;
+            int j = i+1;
+            message.arg1 = j;
+            handler.sendMessage(message);
+
        }
+
+
+        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+        Date curDate = new Date(System.currentTimeMillis());
+        String date = format.format(curDate);
+
+        Message message = new Message();
+        message.what = 3;
+        message.obj = date;
+        handler.sendMessage(message);
+
     }
 
 
     private int getFlag(){
-        int i = 0;
-        Cursor cursor = resolver.query(uri,null,null,null,null);
+        Cursor cursor =  resolver.query(uri,null,null,null,null);
         Bundle bundle = cursor.getExtras();
-        i = bundle.getInt("flag");
-        return i;
+        return bundle.getInt("flag");
     }
 
-    private void waitForHook(long overTime) {
+    private void waitForHook(long overTime) throws MyTimeoutException {
         long before = System.currentTimeMillis();
         do{
             long now = System.currentTimeMillis();
             if (now - before >= overTime){
                 Log.i("xyz","等待超时");
-                return;
+                throw new MyTimeoutException("等待hook方法超时");
             }
-            SystemClock.sleep(1000);
+            SystemClock.sleep(200);
         }while ( getFlag() == 0 );
     }
 
@@ -334,14 +419,14 @@ public class MainActivity extends AppCompatActivity {
         AccessibilityNodeInfo res = null;
         for (int i = 0; i < root.getChildCount(); i++) {
             AccessibilityNodeInfo nodeInfo = root.getChild(i);
-            if (nodeInfo.getClassName().equals("android.widget.TextView")) {
+            if (nodeInfo!=null && nodeInfo.getClassName().equals("android.widget.TextView")) {
                 Log.i("xyz","获取到TextView");
                 Log.i("xyz","nodeInfo = "+nodeInfo);
                 Rect rect = new Rect();
                 nodeInfo.getBoundsInScreen(rect);
                 int x = rect.centerX();
                 int y = rect.centerY();
-                if (84 < x  && x<138 &&197 < y && y < 215) {
+                if (84 < x  && x<186 &&197 < y && y < 215) {
                     res =  nodeInfo;
                     Log.i("xyz","找到地区值");
                     break; // 这里必须有这个break，表示找到返回键之后就会打破循环，将找到的值返回
@@ -386,18 +471,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     AccessibilityNodeInfo returnInfo;
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void finishAndReturn(){
 
         Log.i("xyz","开始查找返回键");
-
-
         do {
             // 找到左上角的返回键
             AccessibilityNodeInfo root = getRoot();
             returnInfo = findReturn(root);
             SystemClock.sleep(200);
         }while (returnInfo == null);
-
 
 
         if (returnInfo == null){
@@ -441,6 +524,7 @@ public class MainActivity extends AppCompatActivity {
         return res;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isAbnormal() {
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
@@ -454,6 +538,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isNonexistent() {
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
@@ -467,6 +552,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isFrequent() {
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
@@ -481,15 +567,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private int hasAddBtn() {
+    //  改了，合并判断，判断是4种情景的哪一个
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
+    private int hasAddBtn() throws MyTimeoutException {
         // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
         long aa = System.currentTimeMillis();
         do {
             AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
-            if (bb - aa >= 20000){
-                return 0;
+            if (bb - aa >= 13000){
+                Log.e("xyz","sss");
+                throw new MyTimeoutException("网络异常,没有获取到具体的场景模式");
             }
             if (isNonexistent()){
                 return 1;
@@ -509,14 +598,14 @@ public class MainActivity extends AppCompatActivity {
             Log.i("xyz","找到添加按钮");
             return 4;
         }else {
-            return 0;
+            throw new MyTimeoutException("网络异常,没有获取到具体的场景模式");
         }
     }
 
     private void pushEnter() {
         // 66 回车
         String adb = "adb shell input keyevent 66";
-        for (int i = 0; i < 3; i++){
+        for (int i = 0; i < 3; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
             try {
                 Runtime.getRuntime().exec(adb);
                 Log.i("xyz","执行一次回车");
@@ -527,6 +616,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void findEditAndInputInfo(String info) {
 
         do {
@@ -576,7 +666,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     // 每次都等待200ms后获取root根节点信息
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    @android.support.annotation.RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private AccessibilityNodeInfo getRoot() {
         mService = (AccessibilityService) getContext();
         AccessibilityNodeInfo root;
@@ -584,6 +674,7 @@ public class MainActivity extends AppCompatActivity {
             root = mService.getRootInActiveWindow();
             SystemClock.sleep(200);
         }while (root==null);
+        root.refresh();
         return root;
     }
 
@@ -601,13 +692,13 @@ public class MainActivity extends AppCompatActivity {
 
 
     // 线程睡眠，让出cpu
-    public void waitFor(long overTime){
+    public void waitFor(long overTime) throws MyTimeoutException {
         long before = System.currentTimeMillis();
         do{
             long now = System.currentTimeMillis();
             if (now - before >= overTime){
                 Log.i("xyz","等待超时");
-                return;
+                throw new MyTimeoutException("等待辅助类方法超时");
             }
             SystemClock.sleep(300);
         }while (getCnt() == 0);
@@ -638,10 +729,10 @@ public class MainActivity extends AppCompatActivity {
 //        }
 //    }
 
-    // 随机睡眠 0.5 到 1.5 秒
+    // 随机睡眠 1 到 1.5 秒
     private void sleepRandom(){
         double ran = Math.random();
-        long lon = (long) (1000 + ran *1000);
+        long lon = (long) (400 + ran *300);
         SystemClock.sleep(lon);
     }
 
@@ -835,4 +926,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
+
 }

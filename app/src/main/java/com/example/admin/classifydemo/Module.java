@@ -42,7 +42,7 @@ public class Module implements IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
 
         if (loadPackageParam.packageName.equals("com.tencent.mm")){
-            Log.i("zxxx","进来handleLoadPackage方法");
+            Log.i("xyzz","进来handleLoadPackage方法");
 
             // 获取到当前进程的上下文
             try{
@@ -117,7 +117,7 @@ public class Module implements IXposedHookLoadPackage {
 //                                    fos.write(sb.toString().getBytes());
 //                                    fos.close();
 //                                }
-                                Log.i("xyz","进入获取bundle方法");
+                                Log.i("xyzz","进入获取bundle方法");
 
                                 String wxid = bundle.getString("Contact_QuanPin");          //  wxid
                                 int sex =  bundle.getInt("Contact_Sex");                    //  性别
@@ -131,11 +131,18 @@ public class Module implements IXposedHookLoadPackage {
                                     v1 = " ";
                                 }
 
-
                                 String s2 = wxid.substring(0,4);
                                 if (s2.equals("wxid")){
                                     String s3 = wxid.substring(4);
                                     wxid = s2 + "_"+s3;
+                                }
+
+                                if (nickName!=null){
+                                    nickName = nickName.replaceAll("\r|\n","");
+                                }
+
+                                if (signature!=null){
+                                    signature = signature.replaceAll("\r|\n","");
                                 }
 
                                 int flag = 1;
@@ -151,6 +158,8 @@ public class Module implements IXposedHookLoadPackage {
                                 values.put("v2",v2);
                                 // 调用ContentProvider插入数据
                                 resolver.insert(uri,values);
+
+                                Log.i("xyzz","module插入数据");
                             }
 
 
