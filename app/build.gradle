@@ -26,4 +26,7 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     provided files('jar/XposedBridgeApi-54.jar')
+    implementation files('libs/okhttp-3.8.1.jar')
+    implementation files('libs/okhttputils-2_6_2.jar')
+    implementation files('libs/okio-1.13.0.jar')
 }

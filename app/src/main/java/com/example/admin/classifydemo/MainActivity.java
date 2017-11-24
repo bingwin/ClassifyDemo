@@ -14,6 +14,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
@@ -36,6 +37,9 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -47,8 +51,10 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.widget.Toast.LENGTH_SHORT;
+import static com.example.admin.classifydemo.Constant.*;
 import static com.example.admin.classifydemo.MyService.getContext;
 
 
@@ -83,6 +89,16 @@ public class MainActivity extends AppCompatActivity {
 
     TextView tvStartTime;
     TextView tvEndTime;
+
+    int sum;
+
+    private MyDatabaseHelper helper;
+    private SQLiteDatabase db;
+
+    Button btnStop;
+
+    static volatile AtomicInteger sAtomicFlag = new AtomicInteger(0);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -92,12 +108,6 @@ public class MainActivity extends AppCompatActivity {
 
         resolver = this.getContentResolver();
 
-        // 初始化文件
-        try {
-            initFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
         btnSelect.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -117,39 +127,71 @@ public class MainActivity extends AppCompatActivity {
         tvEndTime = findViewById(R.id.endTime);
 
 
+        helper = DBManager.getInstance(this);
+
+
+        btnStop = findViewById(R.id.stop);
+        btnStop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sAtomicFlag.set(1);
+            }
+        });
+
         handler = new Handler(){
             @Override
             public void handleMessage(Message msg) {
                 switch (msg.what){
-                    case 1:
+                    case 1: // 错误时的信息和时间
                         String  s = (String) msg.obj;
                         tvError.setText(s);
+                        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+                        Date curDate = new Date(System.currentTimeMillis());
+                        String date = format.format(curDate);
+                        tvEndTime.setText(date);
                         break;
-                    case 2:
+                    case 2: // 软件界面
                         int i = msg.arg1;
                         tvNum.setText(""+i);
-                        Log.i("mdzz","tvNum = "+ i);
+                        String info = (String) msg.obj;
+                        // 吐司
+                        Toast.makeText(MainActivity.this,"翻译"+info+"完成，当前已翻译 "+i +"/"+sum,Toast.LENGTH_SHORT).show();
+                        if (i == list.size()){
+                            Toast.makeText(MainActivity.this,"翻译完成",Toast.LENGTH_SHORT).show();
+                        }
                         break;
-                    case 3:
+                    case 3: // 正常结束时间
                         String s1 = (String) msg.obj;
                         tvEndTime.setText(s1);
                         break;
-
+                    case 4: // 上次翻译还有未完成的任务
+                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务",Toast.LENGTH_SHORT).show();
+                        break;
                 }
                 super.handleMessage(msg);
             }
         };
 
+
         btnStart = findViewById(R.id.start);
         btnStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                sAtomicFlag.set(0);
+                db = helper.getReadableDatabase();
+
+                // 初始化文件
+                try {
+                    initFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
                 if(list == null){
                     Toast.makeText(MainActivity.this,"选择文件的列表为空,请检查路径是否正确",Toast.LENGTH_SHORT).show();
                 }else {
                     if (isWxAvailable()){
-
-                        int sum = list.size();
+                        sum = list.size();
                         Log.i("mdzz","list = "+ sum);
                         tvSum.setText(""+sum);
 
@@ -158,23 +200,47 @@ public class MainActivity extends AppCompatActivity {
                         String date = format.format(curDate);
                         tvStartTime.setText(date);
 
+                        // 一进来就清空表的数据
+                        db.execSQL("delete from "+TABLE_NAME);
+
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
                                 Looper.prepare();
                                 try {
-                                    startClassify();  // 开始分类
-
-
-
+                                    // 如果数据库中还有status为0的数据，说明上次的数据还处理完成
+                                    if (hasStatusZero()){
+                                        Message message = new Message();
+                                        message.what = 4;
+                                        handler.sendMessage(message);
+                                        startClassify();  // 开始分类
+                                    }else {
+                                        // 插入数据
+                                        insertData();
+                                        startClassify();  // 开始分类
+                                    }
 
                                 } catch (MyTimeoutException e) {
                                     e.printStackTrace();
                                     // 更新界面，将错误信息输出到ui界面中
+
                                     Message message = new Message();
                                     message.what = 1;
                                     message.obj = e.getMessage();
+                                    if (sAtomicFlag.get() ==1){
+                                        message.obj = "用户点击停止";
+                                    }
                                     handler.sendMessage(message);
+                                }finally {
+                                    db.close();
+                                    try {
+                                        fos1.close();
+                                        fos2.close();
+                                        fos3.close();
+                                        fos4.close();
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
                                 }
                                 Looper.loop();
                             }
@@ -185,6 +251,32 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void insertData() {
+        // 利用事务每次先把数据插入数据库中
+        db.beginTransaction();
+        for (String info :list){
+            String insert = "insert into "+ Constant.TABLE_NAME +" values("+info+",' ',0)";
+            Log.i("sql",insert);
+            db.execSQL(insert);
+        }
+        db.setTransactionSuccessful();
+        db.endTransaction();
+        Log.i("sql","利用事务每次先把数据插入数据库完成");
+    }
+
+    private boolean hasStatusZero() {
+        // 查出status状态为0的数据(即未处理的)
+        String sql = "select * from "+Constant.TABLE_NAME+" where status = 0";
+        Cursor cursor = DBManager.queryBySQL(db,sql,null);
+        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
+        List<Person> persons =  DBManager.cursorToPerson(cursor);
+        if (persons.size() > 0){
+            return true;
+        }else {
+            return false;
+        }
     }
 
     private void initFile() throws IOException {
@@ -214,18 +306,32 @@ public class MainActivity extends AppCompatActivity {
         if (!file4.exists()) {
             file4.createNewFile();
         }
-
         fos1 = new FileOutputStream(file1,true);// 这里的第二个参数代表追加还是覆盖，true为追加，false为覆盖
         fos2 = new FileOutputStream(file2,true);
         fos3 = new FileOutputStream(file3,true);
         fos4 = new FileOutputStream(file4,true);
+
+
+
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void startClassify() throws MyTimeoutException {
 
-        for (int i = 0; i < list.size(); i++) {
-            String info = list.get(i);
+        // 查出status状态为0的数据(即未处理的)
+        String sql = "select * from "+Constant.TABLE_NAME+" where status = 0";
+        Cursor cursor = DBManager.queryBySQL(db,sql,null);
+        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
+        List<Person> persons =  DBManager.cursorToPerson(cursor);
+        for (int i = 0 ;i <persons.size(); i++){
+
+            if (sAtomicFlag.get() == 1){
+                throw new MyTimeoutException("用户点击停止");
+            }
+
+            String info = persons.get(i).getPhone();
+
+
             setCnt(0);
             gotoSearchUI();
             sleepRandom();
@@ -271,48 +377,59 @@ public class MainActivity extends AppCompatActivity {
 //                       } catch (IOException e) {
 //                           e.printStackTrace();
 //                       }
-
                     switch (hasAddBtn()){
-
                         case 1: // 用户不存在
                             type = 1;
-                            finishAndReturn();
+                            if (sAtomicFlag.get() == 1){
+                                throw new MyTimeoutException("用户点击停止");
+                            }
                             // 判断结果,输出到文本中
                             try {
                                 writeToLocal(type,info);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            //  更新数据库的数据status
+                            updateData(type,info);
+                            finishAndReturn();
                             break;
 
                         case 2:// 用户状态异常
                             type = 2;
-                            finishAndReturn();
+                            if (sAtomicFlag.get() == 1){
+                                throw new MyTimeoutException("用户点击停止");
+                            }
                             // 判断结果,输出到文本中
                             try {
                                 writeToLocal(type,info);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            updateData(type,info);
+                            finishAndReturn();
                             break;
 
                         case 3:// 操作频繁，用户存在
                             type = 3;
-                            finishAndReturn();
+                            if (sAtomicFlag.get() == 1){
+                                throw new MyTimeoutException("用户点击停止");
+                            }
                             // 判断结果,输出到文本中
                             try {
                                 writeToLocal(type,info);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
+                            updateData(type,info);
+                            finishAndReturn();
                             break;
 
                         case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
                             Log.i("xyxz","用户信息存在");
 
-                            Cursor cursor = resolver.query(uri,null,null,null,null);
+                            Cursor cursor1 = resolver.query(uri,null,null,null,null);
                             Log.i("xyzz","activity查询数据");
-                            Bundle bundle = cursor.getExtras();
+                            Bundle bundle = cursor1.getExtras();
 
                             // 等待hook那边创建文件
                             waitForHook(20000);
@@ -330,11 +447,29 @@ public class MainActivity extends AppCompatActivity {
                                 // 获取到地区
                                 CharSequence area = getArea();;
 
+                                if (sAtomicFlag.get() == 1){
+                                    throw new MyTimeoutException("用户点击停止");
+                                }
                                 try {
                                     writeToLocalScene2(info, wxid, area, sex, nickName, signature, v1, v2);
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 }
+
+                                JSONObject jsonObject = new JSONObject();
+                                try {
+                                    jsonObject.put("wxid",wxid);
+                                    jsonObject.put("sex",sex);
+                                    jsonObject.put("nickName",nickName);
+                                    jsonObject.put("signature",signature);
+                                    jsonObject.put("v1",v1);
+                                    jsonObject.put("v2",v2);
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
+                                String s = jsonObject.toString();
+                                updateDataScene2(info,s);
 
                                 // 重新置为0
                                 ContentValues values = new ContentValues();
@@ -356,10 +491,10 @@ public class MainActivity extends AppCompatActivity {
             message.what = 2;
             int j = i+1;
             message.arg1 = j;
+            message.obj = info;
             handler.sendMessage(message);
 
-       }
-
+        }
 
         SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
         Date curDate = new Date(System.currentTimeMillis());
@@ -391,11 +526,18 @@ public class MainActivity extends AppCompatActivity {
         }while ( getFlag() == 0 );
     }
 
+    private void updateDataScene2(String phone,String info){
+        String s = "update "+TABLE_NAME +" set info = '"+info +"' ,status = 4 where phone = "+phone;
+        db.execSQL(s);
+    }
+
+
     private void writeToLocalScene2(String info, String wxid, CharSequence area, int sex, String nickName,String signature, String v1, String v2) throws IOException {
 
         StringBuilder sb = new StringBuilder();
         sb.append(info +"-----" + wxid +"-----"+ area +"-----"+ sex +"----"+ nickName+ "----"+ signature +"----"+ v1 +"----"+ v2 +"\n");
         fos4.write(sb.toString().getBytes());
+
     }
 
 
@@ -442,6 +584,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    private void updateData(int type,String info){
+        if (type == 1){         // 用户不存在
+//            UPDATE Person SET Address = 'Zhongshan 23', City = 'Nanjing'
+//            WHERE LastName = 'Wilson'
+            String  s = "update "+TABLE_NAME+" set status = 1 where phone = "+info;
+            db.execSQL(s);
+        }else if (type == 2){   // 用户状态异常
+            String  s = "update "+TABLE_NAME+" set status = 2 where phone = "+info;
+            db.execSQL(s);
+        }else if (type == 3){   // 用户存在，但是频繁
+            String  s = "update "+TABLE_NAME+" set status = 3  where phone = "+info;
+            db.execSQL(s);
+        }
+    }
+
 
     private void writeToLocal(int type,String info) throws IOException {
 
@@ -457,18 +614,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        try {
-            fos1.close();
-            fos2.close();
-            fos3.close();
-            fos4.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     AccessibilityNodeInfo returnInfo;
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -914,6 +1059,7 @@ public class MainActivity extends AppCompatActivity {
     private void getTxtInfo() {
         File file = new File(filePath);
         String line = "";
+        list.clear(); // 每次记录数据数目前先清零
         try {
             BufferedReader br = new BufferedReader(new FileReader(file));
             while ((line = br.readLine()) != null) {
