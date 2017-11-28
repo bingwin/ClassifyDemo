@@ -139,10 +139,12 @@ public class Module implements IXposedHookLoadPackage {
 
                                 if (nickName!=null){
                                     nickName = nickName.replaceAll("\r|\n","");
+                                    nickName = sqliteEscape(nickName);
                                 }
 
                                 if (signature!=null){
                                     signature = signature.replaceAll("\r|\n","");
+                                    signature = sqliteEscape(signature);
                                 }
 
                                 int flag = 1;
@@ -151,11 +153,11 @@ public class Module implements IXposedHookLoadPackage {
                                 ContentValues values = new ContentValues();
                                 values.put("wxid",wxid);
                                 values.put("sex",sex);
-                                values.put("nickName",nickName);
+                                values.put("nick",nickName);
                                 values.put("flag",flag);
                                 values.put("signature",signature);
-                                values.put("v1",v1);
-                                values.put("v2",v2);
+                                values.put("v1data",v1);
+                                values.put("v2data",v2);
                                 // 调用ContentProvider插入数据
                                 resolver.insert(uri,values);
 
@@ -168,5 +170,21 @@ public class Module implements IXposedHookLoadPackage {
                 }
             });
         }
+
+
+    }
+
+    private String sqliteEscape(String s) {
+        s = s.replace("/","//");
+        s = s.replace("'","''");
+        s = s.replace("[","/[");
+        s = s.replace("]","/]");
+        s = s.replace("%","/%");
+        s = s.replace("&","/&");
+        s = s.replace("_","/_");
+        s = s.replace("(","/(");
+        s = s.replace(")","/)");
+        return s;
+
     }
 }

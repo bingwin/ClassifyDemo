@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -22,6 +23,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
@@ -37,6 +39,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -56,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static android.widget.Toast.LENGTH_SHORT;
 import static com.example.admin.classifydemo.Constant.*;
 import static com.example.admin.classifydemo.MyService.getContext;
+
 
 
 public class MainActivity extends AppCompatActivity {
@@ -97,7 +101,29 @@ public class MainActivity extends AppCompatActivity {
 
     Button btnStop;
 
+    Button btnContinue;
+
     static volatile AtomicInteger sAtomicFlag = new AtomicInteger(0);
+
+    WechatServerHelper wechatServerHelper;
+
+    Button btnService;
+
+
+    private List<String> mList1 = new ArrayList<>();
+    private List<String> mList2 = new ArrayList<>();
+    private List<String> mList3 = new ArrayList<>();
+    private List<String> mList4Phone = new ArrayList<>();
+    private List<JSONObject> mList4Info = new ArrayList<>();
+
+
+    static volatile AtomicInteger sAtomicFlag1 = new AtomicInteger(0);
+
+
+    ClipboardManager manager;
+
+
+    Button button;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,6 +135,7 @@ public class MainActivity extends AppCompatActivity {
         resolver = this.getContentResolver();
 
 
+        Log.i("xyz","onCreate");
         btnSelect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -128,6 +155,11 @@ public class MainActivity extends AppCompatActivity {
 
 
         helper = DBManager.getInstance(this);
+
+        wechatServerHelper = WechatServerHelper.getInstance();
+
+
+        manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
 
         btnStop = findViewById(R.id.stop);
@@ -164,13 +196,63 @@ public class MainActivity extends AppCompatActivity {
                         String s1 = (String) msg.obj;
                         tvEndTime.setText(s1);
                         break;
-                    case 4: // 上次翻译还有未完成的任务
-                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务",Toast.LENGTH_SHORT).show();
+                    case 4: // 未完成的任务的数量
+
+                        int j = msg.arg1;
+                        tvSum.setText(""+j);
+                        break;
+                    case 5:
+                        Toast.makeText(MainActivity.this,"list列表为空" ,Toast.LENGTH_SHORT).show();
+                        break;
+
+                    case 6:
+                        tvError.setText("服务器返回数据列表为空，睡眠一段时间之后将再次重试");
+                        break;
+                    case 7:
+                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务",Toast.LENGTH_SHORT).show();
+                        break;
+                    case 71:
+                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的翻译任务,将自动继续执行任务",Toast.LENGTH_SHORT).show();
+                        break;
+                    case 8:
+                        Toast.makeText(MainActivity.this,"数据库还有未上传到服务器的数据,将自动上传",Toast.LENGTH_SHORT).show();
+                        break;
+                    case 9:
+                        Toast.makeText(MainActivity.this,"数据库上传到服务器成功",Toast.LENGTH_SHORT).show();
+                        tvError.setText("任务完成");
                         break;
                 }
                 super.handleMessage(msg);
             }
         };
+        btnContinue = findViewById(R.id.jixu);
+        btnContinue.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Looper.prepare();
+                        try {
+                            continueClassify();  // 继续分类
+                        }catch (MyTimeoutException e) {
+                            e.printStackTrace();
+                            Message message = new Message();
+                            message.what = 1;
+                            message.obj = e.getMessage();
+                            if (sAtomicFlag.get() ==1){
+                                message.obj = "用户点击停止";
+                            }
+                            handler.sendMessage(message);
+                        }finally {
+                            db.close();
+                        }
+                        Looper.loop();
+                    }
+                }).start();
+            }
+        });
 
 
         btnStart = findViewById(R.id.start);
@@ -208,17 +290,9 @@ public class MainActivity extends AppCompatActivity {
                             public void run() {
                                 Looper.prepare();
                                 try {
-                                    // 如果数据库中还有status为0的数据，说明上次的数据还处理完成
-                                    if (hasStatusZero()){
-                                        Message message = new Message();
-                                        message.what = 4;
-                                        handler.sendMessage(message);
-                                        startClassify();  // 开始分类
-                                    }else {
-                                        // 插入数据
-                                        insertData();
-                                        startClassify();  // 开始分类
-                                    }
+                                    // 插入数据
+                                    insertData();
+                                    startClassify();  // 开始分类
 
                                 } catch (MyTimeoutException e) {
                                     e.printStackTrace();
@@ -251,6 +325,672 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+
+
+        btnService = findViewById(R.id.serviceBtn);
+        btnService.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                autoDoTask();
+            }
+        });
+
+
+        Bundle bundle = getIntent().getExtras();
+        if (bundle!=null){
+            String s = bundle.getString("key");
+            if (s.equals("service_start")){
+                Log.i("xyz","bundle传入正确");
+
+                SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+                Date curDate = new Date(System.currentTimeMillis());
+                String date = format.format(curDate);
+                tvStartTime.setText(date);
+
+                autoDoTask();
+            }
+        }
+
+        if(savedInstanceState!=null) {
+            tvStartTime.setText(savedInstanceState.getString("startTime"));
+            tvEndTime.setText(savedInstanceState.getString("endTime"));
+            tvNum.setText(savedInstanceState.getString("num"));
+            tvSum.setText(savedInstanceState.getString("sum"));
+            tvError.setText(savedInstanceState.getString("error"));
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putString("startTime",tvStartTime.getText().toString());
+        outState.putString("endTime",  tvEndTime.getText().toString());
+        outState.putString("num",tvNum.getText().toString());
+        outState.putString("sum",tvSum.getText().toString());
+        outState.putString("error",tvError.getText().toString());
+
+        Log.i("life","onSaveInstanceState");
+    }
+
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        Log.i("life","onRestoreInstanceState");
+
+        tvStartTime.setText(savedInstanceState.getString("startTime"));
+        tvEndTime.setText(savedInstanceState.getString("endTime"));
+        tvNum.setText(savedInstanceState.getString("num"));
+        tvSum.setText(savedInstanceState.getString("sum"));
+        tvError.setText(savedInstanceState.getString("error"));
+    }
+
+
+    private void autoDoTask() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+
+
+                while (true) {
+                    try {
+                        doTask();
+                        sleepMinRandom(1,2);
+                    } catch (MyTimeoutException e) {
+                        e.printStackTrace();
+                        Log.e("xyz","捕获到异常");
+                        Message message = new Message();
+                        message.what = 1;
+                        message.obj = e.getMessage();
+                        if (sAtomicFlag.get() == 1) {
+                            message.obj = "用户点击停止";
+                            break;
+                        }
+                        if (sAtomicFlag1.get() == 1) {
+                            message.obj = "上传到服务器失败";
+                        }
+                        handler.sendMessage(message);
+
+                        killWechat();
+
+                        sleepMinRandom(1,2);
+                        // 下次任务时记得开启微信先
+                        startWechat();
+                        // 开启成功，回到doTask
+                        while(true){
+                            if (startFinish()){
+                                break;
+                            }
+                            sleepRandom();
+                        }
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    } finally {
+                        if (db!=null){
+                            db.close();
+                            db = null;
+                        }
+                    }
+                }
+            }
+        }).start();
+    }
+
+    private void killWechat() {
+        // 异常时杀死微信，这样就回到主界面了。这样做还有一个好处，保证下次任务开始时微信一定在主界面，从而继续执行任务
+        String s = "adb shell am force-stop com.tencent.mm ";
+        try {
+            Runtime.getRuntime().exec(s);
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+    private boolean startFinish() {
+        // 获取到添加按钮
+        List<AccessibilityNodeInfo> list;
+        long aa = System.currentTimeMillis();
+        do {
+            AccessibilityNodeInfo root = getRoot();
+            long bb =  System.currentTimeMillis();
+            if (bb - aa >= 13000){
+                Log.e("xyz","sss");
+            }
+
+            list = root.findAccessibilityNodeInfosByText("微信");
+            SystemClock.sleep(500);
+        }while (list == null || list.size() == 0);
+
+        if (list.size() > 0){
+            Log.i("xyz","微信启动完成");
+            return true;
+        }else {
+            return false;
+        }
+    }
+
+    private void startWechat() {
+        Intent intent = new Intent();
+        ComponentName cmp=new ComponentName("com.tencent.mm","com.tencent.mm.ui.LauncherUI");
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setComponent(cmp);
+        startActivity(intent);
+    }
+
+
+    private void doTask() throws MyTimeoutException, JSONException {
+        // 如果数据库中还有status为0的数据，说明上次的数据还处理完成
+        if (hasStatusZero()) {
+            handler.sendEmptyMessage(71);
+            continueClassify();
+        }
+
+        if (hasData()){
+            handler.sendEmptyMessage(8);
+
+            mList1 = new ArrayList<>();
+            mList2 = new ArrayList<>();
+            mList3 = new ArrayList<>();
+            mList4Info = new ArrayList<>();
+            mList4Phone = new ArrayList<>();
+
+            refreshList(1,mList1);
+            refreshList(2,mList2);
+            refreshList(3,mList3);
+            refreshList2();
+
+            uploadToService();
+        }
+
+
+        sAtomicFlag.set(0);
+        db = helper.getReadableDatabase();
+
+        // 请求数据
+        JSONObject phoneObject = null;
+        JSONArray array  = null;
+        while (true) {
+            try {
+                // TODO
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(1, 0, 1000);
+                array = phoneObject.getJSONArray("phones");
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            if (phoneObject != null && array !=null && array.length() > 0 ){
+                break;
+            }
+            // 睡眠一段时间，在主界面中显示
+            handler.sendEmptyMessage(6);
+            sleepMinRandom(1,2);
+        }
+
+        list.clear();
+        for (int i = 0; i < array.length(); i++) {
+            try {
+                list.add(array.getString(i));
+                Log.i("list data",array.getString(i));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            };
+        }
+
+
+        if (list == null){
+            handler.sendEmptyMessage(5);
+        }else {
+            // 插入数据库
+            insertData();
+            // 翻译
+            continueClassify();
+            // 上传到服务器
+            uploadToService();
+        }
+
+    }
+
+    private void refreshList2() throws MyTimeoutException, JSONException {
+        db = helper.getReadableDatabase();
+
+        // 查出status状态为未上传的数据
+        String sql = "select * from " + Constant.TABLE_NAME + " where status = 4";
+        Cursor cursor = DBManager.queryBySQL(db, sql, null);
+        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
+        List<Person> persons = DBManager.cursorToPerson(cursor);
+
+
+        for (int i = 0; i < persons.size(); i++) {
+
+            if (sAtomicFlag.get() == 1) {
+                throw new MyTimeoutException("用户点击停止");
+            }
+            String phone = persons.get(i).getPhone();
+            String info = persons.get(i).getInfo();
+
+            JSONObject object = new JSONObject(info);
+            mList4Phone.add(phone);
+            mList4Info.add(object);
+
+        }
+        if (db!=null){
+            db.close();
+            db = null;
+        }
+    }
+
+    private void refreshList(int status,List<String >list) throws MyTimeoutException {
+        db = helper.getReadableDatabase();
+
+        // 查出status状态为未上传的数据
+        String sql = "select * from " + Constant.TABLE_NAME + " where status = "+status;
+        Cursor cursor = DBManager.queryBySQL(db, sql, null);
+        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
+        List<Person> persons = DBManager.cursorToPerson(cursor);
+
+
+        for (int i = 0; i < persons.size(); i++) {
+
+            if (sAtomicFlag.get() == 1) {
+                throw new MyTimeoutException("用户点击停止");
+            }
+            String info = persons.get(i).getPhone();
+
+            list.add(info);
+
+        }
+        if (db!=null){
+            db.close();
+            db = null;
+        }
+
+    }
+
+    private boolean hasData() {
+        // 查出status状态为1,2,3,4的数据(即未上传的)
+        db = helper.getReadableDatabase();
+        String sql = "select * from "+Constant.TABLE_NAME+" where status = 1 or status = 2 or status = 3 or status = 4 ";
+        Cursor cursor = DBManager.queryBySQL(db,sql,null);
+        if(cursor == null){
+            db.close();
+            return false;
+        }else {
+            List<Person> persons =  DBManager.cursorToPerson(cursor);
+            if (persons.size() > 0){
+                db.close();
+                return true;
+            }else {
+                db.close();
+                return false;
+            }
+        }
+    }
+
+    // 睡眠分钟数。区间段
+    private void sleepMinRandom(long startMin,long endMin) {
+        double ran = Math.random();
+        long interval = endMin - startMin;
+        long lon = (long) (startMin * 60 * 1000 + ran * 1000 * interval * 60);
+        SystemClock.sleep(lon);
+    }
+
+
+    private void uploadToService() throws MyTimeoutException {
+
+
+
+
+        while (true){
+            sAtomicFlag1.set(0);
+            try {
+                // 上传用户不存在
+                uploadToServiceScene1(mList1,3);
+            }catch (JSONException e){
+                sAtomicFlag1.set(1);
+                throw new MyTimeoutException("上传用户不存在到服务器失败");
+            }finally {
+                if (sAtomicFlag1.get() != 1){
+                    break;
+                }
+            }
+        }
+
+        while (true){
+            sAtomicFlag1.set(0);
+            try {
+                // 上传用户异常
+                uploadToServiceScene1(mList2,4);
+            }catch (JSONException e){
+                sAtomicFlag1.set(1);
+                throw new MyTimeoutException("上传用户异常到服务器失败");
+            }finally {
+                if (sAtomicFlag1.get() != 1){
+                    break;
+                }
+            }
+        }
+
+        while (true){
+            sAtomicFlag1.set(0);
+            try {
+                // 上传用户存在（频繁搜索）
+                uploadToServiceFrequently(mList3);
+            }catch (JSONException e){
+                sAtomicFlag1.set(1);
+                throw new MyTimeoutException("上传用户存在到服务器失败");
+            }finally {
+                if (sAtomicFlag1.get() != 1){
+                    break;
+                }
+            }
+        }
+
+
+
+        while (true){
+            sAtomicFlag1.set(0);
+            try {
+                // 上传信息
+                uploadInfoToService(mList4Phone,mList4Info);
+            }catch (JSONException e){
+                sAtomicFlag1.set(1);
+                throw new MyTimeoutException("上传用户信息到服务器失败");
+            }finally {
+                if (sAtomicFlag1.get() != 1){
+                    break;
+                }
+            }
+        }
+
+        handler.sendEmptyMessage(9);
+
+
+
+
+    }
+
+    private void uploadInfoToService(List<String> phoneList, List<JSONObject> infoList) throws JSONException {
+        JSONObject infos = new JSONObject();
+        for (int i = 0; i < phoneList.size(); i++) {
+            JSONObject infoObject = infoList.get(i);  // 详细信息
+            String phone = phoneList.get(i);          // 手机号
+
+            infos.put(phone,infoObject);        // 总的json数据
+        }
+        boolean bb = wechatServerHelper.translateWxidOk(1,0,infos);
+        if (bb){
+            Log.i("uploadToService","上传到服务器成功");
+            db.beginTransaction();
+            for (String phone: phoneList){
+                String s = "update "+TABLE_NAME +" set status = 14 where phone = "+phone;
+                db.execSQL(s);
+            }
+            db.setTransactionSuccessful();
+            db.endTransaction();
+
+
+            mList4Info.clear();
+            mList4Phone.clear();
+        }else {
+            Log.i("uploadToService","上传到服务器失败");
+            sAtomicFlag1.set(1);
+        }
+
+
+
+    }
+
+
+    private void uploadToServiceFrequently(List<String> list) throws JSONException {
+        JSONArray jsonArray = new JSONArray();
+        for (String phone:list){
+            jsonArray.put(phone);
+        }
+        JSONObject object = wechatServerHelper.phoneExistenceBat(1,0,jsonArray);
+
+        int i = object.getInt("result");
+
+        if (i == 1){
+            Log.i("uploadToService","上传到服务器成功");
+            db.beginTransaction();
+            for (String phone: list){
+                String s = "update "+TABLE_NAME +" set status = 13 where phone = "+phone;
+                db.execSQL(s);
+            }
+            db.setTransactionSuccessful();
+            db.endTransaction();
+
+            mList3.clear();
+        }else if (i == 0){
+            Log.i("uploadToService","上传到服务器失败");
+            sAtomicFlag1.set(1);
+        }
+    }
+
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+    private void continueClassify() throws MyTimeoutException {
+
+        db = helper.getReadableDatabase();
+
+        // 查出status状态为0的数据(即未处理的)
+        String sql = "select * from " + Constant.TABLE_NAME + " where status = 0";
+        Cursor cursor = DBManager.queryBySQL(db, sql, null);
+        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
+        List<Person> persons = DBManager.cursorToPerson(cursor);
+        sum = persons.size();
+        Message msg = new Message();
+        msg.what = 4;
+        msg.arg1 = sum;
+        handler.sendMessage(msg);
+
+        for (int i = 0; i < persons.size(); i++) {
+
+            if (sAtomicFlag.get() == 1) {
+                throw new MyTimeoutException("用户点击停止");
+            }
+
+            String info = persons.get(i).getPhone();
+
+
+            setCnt(0);
+            gotoSearchUI();
+            sleepRandom();
+            waitFor(20000);
+            if (getCnt() >= 1) {
+                Log.i("xyxz", "输入手机号界面");
+                // 找到输入框并填入手机号
+                findEditAndInputInfo(info);
+//                sleepRandom();
+                setCnt(0);
+                // 按两下回车确定
+                pushEnter();
+                waitFor(20000);
+                if (getCnt() >= 1) {
+                    Log.i("xyxz", "具体界面");
+                    int type = 0;
+//                   // 获取当前界面信息
+//                   if (isFrequent()){  // 操作频繁，用户存在
+//                       type = 3;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+//                   }else if (isAbnormal()){  // 用户状态异常
+//                       type = 2;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+//                   }else if (isNonexistent()){ // 用户不存在
+//                       type = 1;
+//                       finishAndReturn();
+//                       // 判断结果,输出到文本中
+//                       try {
+//                           writeToLocal(type,info);
+//                       } catch (IOException e) {
+//                           e.printStackTrace();
+//                       }
+                    switch (hasAddBtn()) {
+                        case 1: // 用户不存在
+                            type = 1;
+                            if (sAtomicFlag.get() == 1) {
+                                throw new MyTimeoutException("用户点击停止");
+                            }
+                            //  更新数据库的数据status
+                            updateData(type, info);
+                            finishAndReturn();
+
+                            mList1.add(info);
+
+                            break;
+
+                        case 2:// 用户状态异常
+                            type = 2;
+                            if (sAtomicFlag.get() == 1) {
+                                throw new MyTimeoutException("用户点击停止");
+                            }
+                            updateData(type, info);
+                            finishAndReturn();
+
+
+                            mList2.add(info);
+                            break;
+
+                        case 3:// 操作频繁，用户存在
+                            type = 3;
+                            if (sAtomicFlag.get() == 1) {
+                                throw new MyTimeoutException("用户点击停止");
+                            }
+
+                            updateData(type, info);
+                            finishAndReturn();
+
+                            mList3.add(info);
+//                            JSONArray jsonArray = new JSONArray();
+//                            try {
+//                                jsonArray.put(info);
+//                                wechatServerHelper.phoneExistenceBat(1,1,jsonArray);
+//                            } catch (JSONException e) {
+//                                e.printStackTrace();
+//                            }
+                            break;
+
+                        case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
+                            Log.i("xyxz", "用户信息存在");
+
+                            Cursor cursor1 = resolver.query(uri, null, null, null, null);
+                            Log.i("xyzz", "activity查询数据");
+                            Bundle bundle = cursor1.getExtras();
+
+                            // 等待hook那边创建文件
+                            waitForHook(20000);
+                            if (getFlag() == 1) {
+                                Log.i("xyxz", "进入查询的代码");
+
+                                // 查询数据并更新flag
+                                String wxid = bundle.getString("wxid");
+                                int sex = bundle.getInt("sex");
+                                String nickName = bundle.getString("nick");
+                                String signature = bundle.getString("signature");  //   个性签名
+                                String v1 = bundle.getString("v1data");               // v1 值
+                                String v2 = bundle.getString("v2data");             // v2 值
+
+                                // 获取到地区
+                                CharSequence area = getArea();
+
+                                if (sAtomicFlag.get() == 1) {
+                                    throw new MyTimeoutException("用户点击停止");
+                                }
+
+                                JSONObject jsonObject = new JSONObject();
+                                try {
+                                    jsonObject.put("wxid", wxid);
+                                    jsonObject.put("sex", sex);
+                                    jsonObject.put("nick", nickName);
+                                    jsonObject.put("signature", signature);
+                                    jsonObject.put("v1data", v1);
+                                    jsonObject.put("v2data", v2);
+                                    jsonObject.put("area", area);
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
+                                String s = jsonObject.toString();
+
+                                updateDataScene2(info, s);
+
+//                                try {
+//                                    JSONObject phone = new JSONObject();
+//                                    phone.put("wxid",wxid);
+//                                    phone.put("sex",sex);
+//                                    phone.put("nick",nickName);
+//                                    phone.put("signature",signature);
+//                                    phone.put("v1",v1);
+//                                    phone.put("v2",v2);
+//                                    phone.put("area", area);
+//
+//                                    JSONObject phones = new JSONObject();
+//                                    phones.put(info,phone.toString());
+//                                    boolean bb = wechatServerHelper.translateWxidOk(1,1,phones);
+//                                    Log.i("uploadToService","反馈wxid "+phones+" ："+bb);
+//                                } catch (JSONException e) {
+//                                    e.printStackTrace();
+//                                }
+
+
+
+                                JSONObject details = new JSONObject();
+                                try {
+                                    details.put("wxid",wxid);
+                                    details.put("sex",sex);
+                                    details.put("nick",nickName);
+                                    details.put("signature",signature);
+                                    details.put("v1data",v1);
+                                    details.put("v2data",v2);
+                                    details.put("area", area);
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+                                mList4Phone.add(info);
+                                mList4Info.add(details);
+
+                                // 重新置为0
+                                ContentValues values = new ContentValues();
+                                values.put("flag", 0);
+                                resolver.update(uri, values, null, null);
+
+                                finishAndReturn();
+//                                sleepRandom();
+                                finishAndReturn();
+                            }
+                            break;
+
+                    }
+
+                }
+            }
+
+            Message message = new Message();
+            message.what = 2;
+            int j = i + 1;
+            message.arg1 = j;
+            message.obj = info;
+            handler.sendMessage(message);
+        }
     }
 
     private void insertData() {
@@ -268,15 +1008,23 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean hasStatusZero() {
         // 查出status状态为0的数据(即未处理的)
+        db = helper.getReadableDatabase();
         String sql = "select * from "+Constant.TABLE_NAME+" where status = 0";
         Cursor cursor = DBManager.queryBySQL(db,sql,null);
-        // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
-        List<Person> persons =  DBManager.cursorToPerson(cursor);
-        if (persons.size() > 0){
-            return true;
-        }else {
+        if(cursor == null){
+            db.close();
             return false;
+        }else {
+            List<Person> persons =  DBManager.cursorToPerson(cursor);
+            if (persons.size() > 0){
+                db.close();
+                return true;
+            }else {
+                db.close();
+                return false;
+            }
         }
+
     }
 
     private void initFile() throws IOException {
@@ -334,13 +1082,13 @@ public class MainActivity extends AppCompatActivity {
 
             setCnt(0);
             gotoSearchUI();
-            sleepRandom();
+//            sleepRandom();
             waitFor(20000);
             if (getCnt() >= 1){
                 Log.i("xyxz","输入手机号界面");
                 // 找到输入框并填入手机号
                 findEditAndInputInfo(info);
-                sleepRandom();
+//                sleepRandom();
 
                 setCnt(0);
                 // 按两下回车确定
@@ -392,6 +1140,18 @@ public class MainActivity extends AppCompatActivity {
                             //  更新数据库的数据status
                             updateData(type,info);
                             finishAndReturn();
+
+
+                            //judgetype
+//                            1:表示 通过通讯录数据库,"请求状态"超过5天,还没有转换成"发出添加好友状态" 的方式进行判断的
+//                            2:表示 通过软件判断没有开通了微信号的（v1.1新增）
+//                            3:表示 通过手机号搜索判断的 结果为"用户不存在"
+//                            4:表示 通过手机号搜索判断的 结果为"用户状态异常" ,表示该手机号用户可能开通了微信号，然后被封了
+
+                            // 上传到后台
+                          //  uploadToService(info,3);
+
+
                             break;
 
                         case 2:// 用户状态异常
@@ -407,6 +1167,10 @@ public class MainActivity extends AppCompatActivity {
                             }
                             updateData(type,info);
                             finishAndReturn();
+
+
+                            // 上传到后台
+                       //     uploadToService(info,4);
                             break;
 
                         case 3:// 操作频繁，用户存在
@@ -422,6 +1186,16 @@ public class MainActivity extends AppCompatActivity {
                             }
                             updateData(type,info);
                             finishAndReturn();
+
+
+                            JSONArray jsonArray = new JSONArray();
+                            try {
+                                jsonArray.put(info);
+                                wechatServerHelper.phoneExistenceBat(1,1,jsonArray);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
                             break;
 
                         case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
@@ -439,10 +1213,10 @@ public class MainActivity extends AppCompatActivity {
                                 // 查询数据并更新flag
                                 String wxid = bundle.getString("wxid");
                                 int sex = bundle.getInt("sex");
-                                String nickName = bundle.getString("nickName");
+                                String nickName = bundle.getString("nick");
                                 String signature = bundle.getString("signature");  //   个性签名
-                                String v1 = bundle.getString("v1");               // v1 值
-                                String v2 = bundle.getString("v2");             // v2 值
+                                String v1 = bundle.getString("v1data");               // v1 值
+                                String v2 = bundle.getString("v2data");             // v2 值
 
                                 // 获取到地区
                                 CharSequence area = getArea();;
@@ -460,10 +1234,11 @@ public class MainActivity extends AppCompatActivity {
                                 try {
                                     jsonObject.put("wxid",wxid);
                                     jsonObject.put("sex",sex);
-                                    jsonObject.put("nickName",nickName);
+                                    jsonObject.put("nick",nickName);
                                     jsonObject.put("signature",signature);
-                                    jsonObject.put("v1",v1);
-                                    jsonObject.put("v2",v2);
+                                    jsonObject.put("v1data",v1);
+                                    jsonObject.put("v2data",v2);
+                                    jsonObject.put("area",area);
                                 } catch (JSONException e) {
                                     e.printStackTrace();
                                 }
@@ -471,14 +1246,33 @@ public class MainActivity extends AppCompatActivity {
                                 String s = jsonObject.toString();
                                 updateDataScene2(info,s);
 
+                                try {
+                                    JSONObject phone = new JSONObject();
+                                    phone.put("wxid",wxid);
+                                    phone.put("sex",sex);
+                                    phone.put("nick",nickName);
+                                    phone.put("signature",signature);
+                                    phone.put("v1data",v1);
+                                    phone.put("v2data",v2);
+                                    phone.put("area",area);
+
+                                    JSONObject phones = new JSONObject();
+                                    phones.put(info,phone.toString());
+//                                    boolean bb = wechatServerHelper.translateWxidOk(1,0,phones);
+//                                    Log.i("uploadToService","反馈wxid "+phones+" ："+bb);
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                }
+
                                 // 重新置为0
                                 ContentValues values = new ContentValues();
                                 values.put("flag", 0);
                                 resolver.update(uri, values, null, null);
 
                                 finishAndReturn();
-                                sleepRandom();
+//                                sleepRandom();
                                 finishAndReturn();
+
                             }
                             break;
 
@@ -504,6 +1298,43 @@ public class MainActivity extends AppCompatActivity {
         message.what = 3;
         message.obj = date;
         handler.sendMessage(message);
+
+    }
+
+    private void uploadToServiceScene1(List<String> list, int i) throws JSONException {
+        int j = 0;
+        if (i == 3){
+            j = 11;
+        }else if (i == 4){
+            j = 12;
+        }
+        JSONArray array = new JSONArray();
+        for (String phone : list){
+            JSONObject object = new JSONObject();
+            object.put(phone,i);
+            array.put(object);
+        }
+        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(1,0,array);
+        Log.i("uploadToService","上传到服务器 "+ array +" : "+zzz);
+        if (zzz){
+            Log.i("uploadToService","上传到服务器成功");
+            db.beginTransaction();
+            for (String phone: list){
+                String s = "update "+TABLE_NAME +" set status = "+ j+" where phone = "+phone;
+                db.execSQL(s);
+            }
+            db.setTransactionSuccessful();
+            db.endTransaction();
+
+            if (i == 3){
+                mList1.clear();
+            }else if (i ==4 ){
+                mList2.clear();
+            }
+        }else {
+            Log.i("uploadToService","上传到服务器失败");
+            sAtomicFlag1.set(1);
+        }
 
     }
 
@@ -585,6 +1416,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void updateData(int type,String info){
+        db = helper.getReadableDatabase();
         if (type == 1){         // 用户不存在
 //            UPDATE Person SET Address = 'Zhongshan 23', City = 'Nanjing'
 //            WHERE LastName = 'Wilson'
@@ -632,7 +1464,7 @@ public class MainActivity extends AppCompatActivity {
             Log.i("xyz","找到的返回为null");
         }else {
             Log.i("xyz","找到的返回不为null");
-            while (!returnInfo.isClickable()) {
+            while (returnInfo!=null && !returnInfo.isClickable()) {
                 returnInfo = returnInfo.getParent();
             }
             // 点击返回
@@ -648,15 +1480,17 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < root.getChildCount(); i++) {
             AccessibilityNodeInfo nodeInfo = root.getChild(i);
             if (nodeInfo != null&&nodeInfo.getClassName().equals("android.widget.ImageView") ) {
-                Log.i("xyz","获取到ImageView");
-                Log.i("xyz","nodeInfo = "+nodeInfo);
+                Log.i("fanhui","获取到ImageView");
+                Log.i("fanhui","nodeInfo = "+nodeInfo);
                 Rect rect = new Rect();
                 nodeInfo.getBoundsInScreen(rect);
                 int x = rect.centerX();
                 int y = rect.centerY();
+                Log.i("fanhui","x = "+ x+ " y = "+y);
                 if (5 < x && x < 35 && 13 < y && y < 43) {
                     res =  nodeInfo;
-                    Log.i("xyz","找到返回键");
+                    Log.i("fanhui","找到返回键");
+                    Log.i("fanhui","找到返回键的坐标 x = "+ x+ " y = "+y);
                     break; // 这里必须有这个break，表示找到返回键之后就会打破循环，将找到的值返回
                 }
             }else {
@@ -750,11 +1584,11 @@ public class MainActivity extends AppCompatActivity {
     private void pushEnter() {
         // 66 回车
         String adb = "adb shell input keyevent 66";
-        for (int i = 0; i < 3; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
+        for (int i = 0; i < 5; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
             try {
                 Runtime.getRuntime().exec(adb);
                 Log.i("xyz","执行一次回车");
-                SystemClock.sleep(400); // 睡眠是为了保证能够两次执行
+                SystemClock.sleep(200); // 睡眠是为了保证能够两次执行
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -772,11 +1606,11 @@ public class MainActivity extends AppCompatActivity {
         }while (editInfo == null);
 
         // 填入手机号
-        ClipboardManager manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         String text = info;
         ClipData data = ClipData.newPlainText("text",text);
         manager.setPrimaryClip(data);
         editInfo.performAction(AccessibilityNodeInfo.ACTION_PASTE);
+
     }
 
     // 找到输入框
@@ -874,27 +1708,24 @@ public class MainActivity extends AppCompatActivity {
 //        }
 //    }
 
-    // 随机睡眠 1 到 1.5 秒
+    // 随机睡眠 0.4 到 0.7 秒
     private void sleepRandom(){
         double ran = Math.random();
-        long lon = (long) (400 + ran *300);
+        long lon = (long) (200 + ran *200);
         SystemClock.sleep(lon);
     }
 
     private int getCnt(){
         int i;
-        synchronized (MyService.gs_lockObj){
-            i = MyService.cnt;
-            Log.i(TAG,"get cnt = "+ MyService.cnt);
-        }
+        i = MyService.cnt.get();
+        Log.i(TAG,"get cnt = "+ MyService.cnt);
         return i;
     }
 
     private void setCnt(int i){
-        synchronized (MyService.gs_lockObj){
-            MyService.cnt = i;
-            Log.i(TAG,"set cnt = "+ MyService.cnt);
-        }
+        MyService.cnt.set(i);
+        Log.i(TAG,"set cnt = "+ MyService.cnt);
+
     }
 
 
@@ -1072,6 +1903,7 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
 
 
 }

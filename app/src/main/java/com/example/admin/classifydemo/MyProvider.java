@@ -36,22 +36,22 @@ public class MyProvider extends ContentProvider {
 
         SharedPreferences sharedPreferences = getContext().getSharedPreferences("tmp", Context.MODE_WORLD_READABLE);
         String wxid = sharedPreferences.getString("wxid"," ");
-        String nickName = sharedPreferences.getString("nickName"," ");
+        String nickName = sharedPreferences.getString("nick"," ");
         int sex = sharedPreferences.getInt("sex",-1);
         int flag = sharedPreferences.getInt("flag",-1);
         String signature = sharedPreferences.getString("signature"," ");
-        String v1 = sharedPreferences.getString("v1"," ");
-        String v2 = sharedPreferences.getString("v2"," ");
+        String v1 = sharedPreferences.getString("v1data"," ");
+        String v2 = sharedPreferences.getString("v2data"," ");
 
 
         Bundle extras = new Bundle();
         extras.putString("wxid",wxid);
-        extras.putString("nickName",nickName);
+        extras.putString("nick",nickName);
         extras.putInt("sex",sex);
         extras.putInt("flag",flag);
         extras.putString("signature",signature);
-        extras.putString("v1",v1);
-        extras.putString("v2",v2);
+        extras.putString("v1data",v1);
+        extras.putString("v2data",v2);
 
 
         MyCursor cursor = new MyCursor();
@@ -75,22 +75,22 @@ public class MyProvider extends ContentProvider {
 
         String wxid =  values.getAsString("wxid");
         int sex = values.getAsInteger("sex");
-        String nickName = values.getAsString("nickName");
+        String nickName = values.getAsString("nick");
         int flag = values.getAsInteger("flag");
         String signature = values.getAsString("signature");  //   个性签名
-        String v1 = values.getAsString("v1");               // v1 值
-        String v2 = values.getAsString("v2");             // v2 值
+        String v1 = values.getAsString("v1data");               // v1 值
+        String v2 = values.getAsString("v2data");             // v2 值
 
 
         SharedPreferences sharedPreferences  = getContext().getSharedPreferences("tmp", Context.MODE_WORLD_READABLE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("wxid",wxid);
         editor.putInt("sex",sex);
-        editor.putString("nickName",nickName);
+        editor.putString("nick",nickName);
         editor.putInt("flag",flag);
         editor.putString("signature",signature);
-        editor.putString("v1",v1);
-        editor.putString("v2",v2);
+        editor.putString("v1data",v1);
+        editor.putString("v2data",v2);
 
         editor.commit();
         Log.i("xyzz","contentprovider插入数据");

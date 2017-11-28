@@ -3,7 +3,7 @@ package com.example.admin.classifydemo;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * �ṩԭ�Ӳ�������Ҫ����ͬ���̣߳������߳�
+ * 提供原子操作，主要用于同步线程，阻塞线程
  * 
  * @author Administrator
  * 
