@@ -39,16 +39,23 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -123,7 +130,9 @@ public class MainActivity extends AppCompatActivity {
     ClipboardManager manager;
 
 
-    Button button;
+    private static final String SP_WXW = "/data/data/com.guru.Xwx_module";
+    private static final String SP_XWX_PATH = "/data/data/com.guru.Xwx_module/shared_prefs/wechatInfo.xml";
+    private int userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,6 +142,9 @@ public class MainActivity extends AppCompatActivity {
         tvFilePath = findViewById(R.id.tv_hint);
 
         resolver = this.getContentResolver();
+
+        // 获取userid
+        initUserId();
 
 
         Log.i("xyz","onCreate");
@@ -207,6 +219,10 @@ public class MainActivity extends AppCompatActivity {
 
                     case 6:
                         tvError.setText("服务器返回数据列表为空，睡眠一段时间之后将再次重试");
+                        SimpleDateFormat f = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+                        Date d = new Date(System.currentTimeMillis());
+                        String ss = f.format(d);
+                        tvEndTime.setText(ss);
                         break;
                     case 7:
                         Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务",Toast.LENGTH_SHORT).show();
@@ -353,25 +369,97 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if(savedInstanceState!=null) {
-            tvStartTime.setText(savedInstanceState.getString("startTime"));
-            tvEndTime.setText(savedInstanceState.getString("endTime"));
-            tvNum.setText(savedInstanceState.getString("num"));
-            tvSum.setText(savedInstanceState.getString("sum"));
-            tvError.setText(savedInstanceState.getString("error"));
+
+            SharedPreferences sharedPreferences = this.getSharedPreferences("tmp", Context.MODE_WORLD_READABLE);
+            String startTime = sharedPreferences.getString("startTime"," ");
+            String endTime = sharedPreferences.getString("endTime"," ");
+            String num = sharedPreferences.getString("num"," ");
+            String sum = sharedPreferences.getString("sum"," ");
+            String error = sharedPreferences.getString("error"," ");
+
+
+            tvStartTime.setText(startTime);
+            tvEndTime.setText(endTime);
+            tvNum.setText(num);
+            tvSum.setText(sum);
+            tvError.setText(error);
         }
+    }
+
+    private void initUserId() {
+        // 没有root的要先赋予权限
+        execCMD("chmod -R 777 " + SP_WXW);
+        userId = getUserId();
+    }
+
+    private void execCMD(String paramString) {
+        try {
+            java.lang.Process process = Runtime.getRuntime().exec("su");
+            Object object = process.getOutputStream();
+            DataOutputStream dos = new DataOutputStream((OutputStream) object);
+            String s = String.valueOf(paramString);
+            object = s +"\n";
+            dos.writeBytes((String) object);
+            dos.flush();
+            dos.writeBytes("exit\n");
+            dos.flush();
+            process.waitFor();
+            object = process.exitValue();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private int getUserId() {
+        File file = new File(SP_XWX_PATH);
+        try {
+            FileInputStream fis = new FileInputStream(file);
+            // 利用dom4j里面的类
+            SAXReader saxReader = new SAXReader();
+            Document document = saxReader.read(fis);
+            Element root = document.getRootElement();
+            List<Element> list = root.elements();
+
+            for (Element element : list){
+                if ("userid".equals(element.attributeValue("name"))){
+                    String currentUin = element.attributeValue("value");
+                    return Integer.parseInt(currentUin);
+                }
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (DocumentException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
 
-        outState.putString("startTime",tvStartTime.getText().toString());
-        outState.putString("endTime",  tvEndTime.getText().toString());
-        outState.putString("num",tvNum.getText().toString());
-        outState.putString("sum",tvSum.getText().toString());
-        outState.putString("error",tvError.getText().toString());
+        String startTime = tvStartTime.getText().toString();
+        String endTime = tvEndTime.getText().toString();
+        String num = tvNum.getText().toString();
+        String sum = tvSum.getText().toString();
+        String error = tvError.getText().toString();
 
         Log.i("life","onSaveInstanceState");
+
+
+        SharedPreferences sharedPreferences  = this.getSharedPreferences("tmp", Context.MODE_WORLD_READABLE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString("startTime",startTime);
+        editor.putString("endTime",endTime);
+        editor.putString("num",num);
+        editor.putString("sum",sum);
+        editor.putString("error",error);
+
+        editor.commit();
+
+
     }
 
 
@@ -380,11 +468,19 @@ public class MainActivity extends AppCompatActivity {
         super.onRestoreInstanceState(savedInstanceState);
         Log.i("life","onRestoreInstanceState");
 
-        tvStartTime.setText(savedInstanceState.getString("startTime"));
-        tvEndTime.setText(savedInstanceState.getString("endTime"));
-        tvNum.setText(savedInstanceState.getString("num"));
-        tvSum.setText(savedInstanceState.getString("sum"));
-        tvError.setText(savedInstanceState.getString("error"));
+        SharedPreferences sharedPreferences = this.getSharedPreferences("tmp", Context.MODE_WORLD_READABLE);
+        String startTime = sharedPreferences.getString("startTime"," ");
+        String endTime = sharedPreferences.getString("endTime"," ");
+        String num = sharedPreferences.getString("num"," ");
+        String sum = sharedPreferences.getString("sum"," ");
+        String error = sharedPreferences.getString("error"," ");
+
+
+        tvStartTime.setText(startTime);
+        tvEndTime.setText(endTime);
+        tvNum.setText(num);
+        tvSum.setText(sum);
+        tvError.setText(error);
     }
 
 
@@ -487,77 +583,87 @@ public class MainActivity extends AppCompatActivity {
 
     private void doTask() throws MyTimeoutException, JSONException {
         // 如果数据库中还有status为0的数据，说明上次的数据还处理完成
-        if (hasStatusZero()) {
+        if (hasStatusZero()) { // kg
             handler.sendEmptyMessage(71);
-            continueClassify();
+            continueClassify(); //k
         }
 
-        if (hasData()){
+        if (hasData()){ //kg
             handler.sendEmptyMessage(8);
 
-            mList1 = new ArrayList<>();
-            mList2 = new ArrayList<>();
-            mList3 = new ArrayList<>();
-            mList4Info = new ArrayList<>();
-            mList4Phone = new ArrayList<>();
 
-            refreshList(1,mList1);
-            refreshList(2,mList2);
-            refreshList(3,mList3);
-            refreshList2();
+            refreshList(1,mList1); //kg
+            refreshList(2,mList2);  //kg
+            refreshList(3,mList3);  //kg
+            refreshList2(mList4Phone,mList4Info);  //kg
+            uploadToService(); //kg
 
-            uploadToService();
+
         }
 
 
-        sAtomicFlag.set(0);
-        db = helper.getReadableDatabase();
 
-        // 请求数据
-        JSONObject phoneObject = null;
-        JSONArray array  = null;
-        while (true) {
-            try {
-                // TODO
-                phoneObject = wechatServerHelper.addrlistForTranslateWxid(1, 0, 1000);
-                array = phoneObject.getJSONArray("phones");
+            sAtomicFlag.set(0);
+            db = helper.getReadableDatabase(); // k
 
-            } catch (JSONException e) {
-                e.printStackTrace();
+            // 请求数据
+            JSONObject phoneObject = null;
+            JSONArray array  = null;
+            while (true) {
+                try {
+                    // TODO
+                    phoneObject = wechatServerHelper.addrlistForTranslateWxid(1, 0, 1000);
+                    array = phoneObject.getJSONArray("phones");
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                if (phoneObject != null && array !=null && array.length() > 0 ){
+                    break;
+                }
+                // 睡眠一段时间，在主界面中显示
+                handler.sendEmptyMessage(6);
+                sleepMinRandom(60,70);
             }
-            if (phoneObject != null && array !=null && array.length() > 0 ){
-                break;
+
+            list.clear();
+            for (int i = 0; i < array.length(); i++) {
+                try {
+                    list.add(array.getString(i));
+                    Log.i("list data",array.getString(i));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                };
             }
-            // 睡眠一段时间，在主界面中显示
-            handler.sendEmptyMessage(6);
-            sleepMinRandom(1,2);
-        }
-
-        list.clear();
-        for (int i = 0; i < array.length(); i++) {
-            try {
-                list.add(array.getString(i));
-                Log.i("list data",array.getString(i));
-            } catch (JSONException e) {
-                e.printStackTrace();
-            };
-        }
 
 
-        if (list == null){
-            handler.sendEmptyMessage(5);
-        }else {
-            // 插入数据库
-            insertData();
-            // 翻译
-            continueClassify();
-            // 上传到服务器
-            uploadToService();
-        }
+            if (list == null){
+                handler.sendEmptyMessage(5);
+            }else {
+                // 插入数据库
+                insertData(); // b kg
+                // 翻译
+                continueClassify();  // k
+                // 上传到服务器
+                uploadToService();  // kg
+
+                //TODO 清空数据库中的表数据
+                if(!hasData() && !hasStatusZero()){
+                    db = helper.getReadableDatabase();
+                    db.execSQL("delete from "+TABLE_NAME);
+                    db.close();
+                }
+            }
+
+
+
+
+
+
 
     }
 
-    private void refreshList2() throws MyTimeoutException, JSONException {
+    private void refreshList2(List<String> mList4Phone,List<JSONObject> mList4Info) throws MyTimeoutException, JSONException {
         db = helper.getReadableDatabase();
 
         // 查出status状态为未上传的数据
@@ -566,7 +672,8 @@ public class MainActivity extends AppCompatActivity {
         // 传统的做法就是把cursor转换为list，然后在listview中显示，会用到simpleAdapter
         List<Person> persons = DBManager.cursorToPerson(cursor);
 
-
+        mList4Phone.clear();
+        mList4Info.clear();
         for (int i = 0; i < persons.size(); i++) {
 
             if (sAtomicFlag.get() == 1) {
@@ -596,6 +703,7 @@ public class MainActivity extends AppCompatActivity {
         List<Person> persons = DBManager.cursorToPerson(cursor);
 
 
+        list.clear();
         for (int i = 0; i < persons.size(); i++) {
 
             if (sAtomicFlag.get() == 1) {
@@ -619,15 +727,24 @@ public class MainActivity extends AppCompatActivity {
         String sql = "select * from "+Constant.TABLE_NAME+" where status = 1 or status = 2 or status = 3 or status = 4 ";
         Cursor cursor = DBManager.queryBySQL(db,sql,null);
         if(cursor == null){
-            db.close();
+            if (db!=null){
+                db.close();
+                db = null;
+            }
             return false;
         }else {
             List<Person> persons =  DBManager.cursorToPerson(cursor);
             if (persons.size() > 0){
-                db.close();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
                 return true;
             }else {
-                db.close();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
                 return false;
             }
         }
@@ -724,16 +841,34 @@ public class MainActivity extends AppCompatActivity {
 
             infos.put(phone,infoObject);        // 总的json数据
         }
-        boolean bb = wechatServerHelper.translateWxidOk(1,0,infos);
+        boolean bb = wechatServerHelper.translateWxidOk(userId,0,infos);
         if (bb){
             Log.i("uploadToService","上传到服务器成功");
-            db.beginTransaction();
-            for (String phone: phoneList){
-                String s = "update "+TABLE_NAME +" set status = 14 where phone = "+phone;
-                db.execSQL(s);
+
+
+            try {
+                db = helper.getReadableDatabase();
+                db.beginTransaction();
+                for (String phone: phoneList){
+                    String s = "update "+TABLE_NAME +" set status = 14 where phone = "+phone;
+                    db.execSQL(s);
+                }
+                db.setTransactionSuccessful();
+                Log.i("uploadToService","数据库更新数据事务成功");
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                db.endTransaction();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
             }
-            db.setTransactionSuccessful();
-            db.endTransaction();
+
+
+
+
+
 
 
             mList4Info.clear();
@@ -753,19 +888,31 @@ public class MainActivity extends AppCompatActivity {
         for (String phone:list){
             jsonArray.put(phone);
         }
-        JSONObject object = wechatServerHelper.phoneExistenceBat(1,0,jsonArray);
+        JSONObject object = wechatServerHelper.phoneExistenceBat(userId,0,jsonArray);
 
         int i = object.getInt("result");
 
         if (i == 1){
             Log.i("uploadToService","上传到服务器成功");
-            db.beginTransaction();
-            for (String phone: list){
-                String s = "update "+TABLE_NAME +" set status = 13 where phone = "+phone;
-                db.execSQL(s);
+
+            try {
+                db = helper.getReadableDatabase();
+                db.beginTransaction();
+                for (String phone: list){
+                    String s = "update "+TABLE_NAME +" set status = 13 where phone = "+phone;
+                    db.execSQL(s);
+                }
+                db.setTransactionSuccessful();
+                Log.i("uploadToService","数据库更新数据事务成功");
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                db.endTransaction();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
             }
-            db.setTransactionSuccessful();
-            db.endTransaction();
 
             mList3.clear();
         }else if (i == 0){
@@ -803,16 +950,17 @@ public class MainActivity extends AppCompatActivity {
             setCnt(0);
             gotoSearchUI();
             sleepRandom();
-            waitFor(20000);
+            waitFor(20001);
             if (getCnt() >= 1) {
                 Log.i("xyxz", "输入手机号界面");
                 // 找到输入框并填入手机号
                 findEditAndInputInfo(info);
-//                sleepRandom();
+                sleepRandom();
                 setCnt(0);
                 // 按两下回车确定
                 pushEnter();
-                waitFor(20000);
+                sleepRandom();
+                waitFor(20002);
                 if (getCnt() >= 1) {
                     Log.i("xyxz", "具体界面");
                     int type = 0;
@@ -895,6 +1043,7 @@ public class MainActivity extends AppCompatActivity {
                             Cursor cursor1 = resolver.query(uri, null, null, null, null);
                             Log.i("xyzz", "activity查询数据");
                             Bundle bundle = cursor1.getExtras();
+
 
                             // 等待hook那边创建文件
                             waitForHook(20000);
@@ -1012,15 +1161,24 @@ public class MainActivity extends AppCompatActivity {
         String sql = "select * from "+Constant.TABLE_NAME+" where status = 0";
         Cursor cursor = DBManager.queryBySQL(db,sql,null);
         if(cursor == null){
-            db.close();
+            if (db!=null){
+                db.close();
+                db = null;
+            }
             return false;
         }else {
             List<Person> persons =  DBManager.cursorToPerson(cursor);
             if (persons.size() > 0){
-                db.close();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
                 return true;
             }else {
-                db.close();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
                 return false;
             }
         }
@@ -1258,7 +1416,7 @@ public class MainActivity extends AppCompatActivity {
 
                                     JSONObject phones = new JSONObject();
                                     phones.put(info,phone.toString());
-//                                    boolean bb = wechatServerHelper.translateWxidOk(1,0,phones);
+//                                    boolean bb = wechatServerHelper.translateWxidOk(userId,0,phones);
 //                                    Log.i("uploadToService","反馈wxid "+phones+" ："+bb);
                                 } catch (JSONException e) {
                                     e.printStackTrace();
@@ -1314,23 +1472,42 @@ public class MainActivity extends AppCompatActivity {
             object.put(phone,i);
             array.put(object);
         }
-        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(1,0,array);
+        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(userId,0,array);
         Log.i("uploadToService","上传到服务器 "+ array +" : "+zzz);
         if (zzz){
             Log.i("uploadToService","上传到服务器成功");
-            db.beginTransaction();
-            for (String phone: list){
-                String s = "update "+TABLE_NAME +" set status = "+ j+" where phone = "+phone;
-                db.execSQL(s);
+
+
+            try {
+                db = helper.getReadableDatabase();
+                db.beginTransaction();
+                for (String phone: list){
+                    String s = "update "+TABLE_NAME +" set status = "+ j+" where phone = "+phone;
+                    db.execSQL(s);
+                }
+                db.setTransactionSuccessful();
+
+                Log.i("uploadToService","数据库更新数据事务成功");
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                db.endTransaction();
+                if (db!=null){
+                    db.close();
+                    db = null;
+                }
             }
-            db.setTransactionSuccessful();
-            db.endTransaction();
+
+
+
 
             if (i == 3){
                 mList1.clear();
             }else if (i ==4 ){
                 mList2.clear();
             }
+
+
         }else {
             Log.i("uploadToService","上传到服务器失败");
             sAtomicFlag1.set(1);
@@ -1677,7 +1854,8 @@ public class MainActivity extends AppCompatActivity {
             long now = System.currentTimeMillis();
             if (now - before >= overTime){
                 Log.i("xyz","等待超时");
-                throw new MyTimeoutException("等待辅助类方法超时");
+
+                throw new MyTimeoutException("等待辅助类方法超时 "+overTime);
             }
             SystemClock.sleep(300);
         }while (getCnt() == 0);
@@ -1708,7 +1886,7 @@ public class MainActivity extends AppCompatActivity {
 //        }
 //    }
 
-    // 随机睡眠 0.4 到 0.7 秒
+    // 随机睡眠 0.2 到 0.4 秒
     private void sleepRandom(){
         double ran = Math.random();
         long lon = (long) (200 + ran *200);

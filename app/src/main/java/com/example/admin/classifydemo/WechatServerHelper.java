@@ -20,7 +20,7 @@ import com.zhy.http.okhttp.request.RequestCall;
 public class WechatServerHelper {
 
 	static WechatServerHelper mWechatServerHelper = null;
-	public static String BASE_URL = "http://192.168.0.213:7777/";
+	public static String BASE_URL = "http://192.168.0.213:8000/";
 	
 	/**修改微信信息*/
 	final public static int CHANGE_PASS = 0x1;

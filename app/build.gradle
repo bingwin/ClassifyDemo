@@ -29,4 +29,5 @@ dependencies {
     implementation files('libs/okhttp-3.8.1.jar')
     implementation files('libs/okhttputils-2_6_2.jar')
     implementation files('libs/okio-1.13.0.jar')
+    implementation files('libs/dom4j-1.6.1.jar')
 }
