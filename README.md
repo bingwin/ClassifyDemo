@@ -22,6 +22,7 @@
 
 这样应该是没有问题的。
 
+
 项目中不是用文件的方式了，是用ContentProvider的方式，因为ContentProvider是一个数据暴露的接口，可以用于进程间的通信，而SharedPreference的Multi Process的模式被抛弃了，然而ContentProvider还有一个问题，它不能储存数据的，网上很多都是将数据放入数据库中，但是我不想用数据库，所以用了SharedPreference的方式储存数据。此时需要处理的就是SharedPreference的是ContentValues数据，而ContentProvider却是操作uri。所以在其查询方法中应该自定义Cursor。利用get/set Extras的方式操作bundle来实现数据的操作。这里有个需要注意的是因为操作SharedPreference需要context对象，但是获取Activity / Service  / ContentProvider的context都没有用。要获取当前hook所在的进程的context。 这里获取的方式也是通过hook方法来获取的。
 
 
@@ -84,4 +85,14 @@
 
 4、整理整体逻辑，下次进来时会把未翻译的翻译完成后，未提交到服务器的先提交
 
+
+2.2    
+
+1、保证手机号码的填入
+
+2、缩短每次任务失败到重新启动的时间间隔
+
+3、修改等待hook类的代码逻辑
+
+4、新增每次获取根节点去操作前都会判断是否为空
 
