@@ -85,7 +85,7 @@ public class MyService extends AccessibilityService {
 
 
 
-    // 睡眠分钟数。区间段
+    // 睡眠秒数。区间段
     private void sleepMRandom(long startMin,long endMin) {
         double ran = Math.random();
         long interval = endMin - startMin;

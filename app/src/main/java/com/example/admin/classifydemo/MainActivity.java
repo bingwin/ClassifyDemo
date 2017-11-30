@@ -261,7 +261,9 @@ public class MainActivity extends AppCompatActivity {
                                 message.obj = "用户点击停止";
                             }
                             handler.sendMessage(message);
-                        }finally {
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        } finally {
                             db.close();
                         }
                         Looper.loop();
@@ -321,7 +323,9 @@ public class MainActivity extends AppCompatActivity {
                                         message.obj = "用户点击停止";
                                     }
                                     handler.sendMessage(message);
-                                }finally {
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                } finally {
                                     db.close();
                                     try {
                                         fos1.close();
@@ -510,13 +514,17 @@ public class MainActivity extends AppCompatActivity {
                         }
                         handler.sendMessage(message);
 
-                        killWechat();
-
-                        sleepMinRandom(1,2);
+//                        killWechat();
+//
+//                        sleepMinRandom(1,2);
                         // 下次任务时记得开启微信先
-                        startWechat();
+//                        startWechat();
                         // 开启成功，回到doTask
                         while(true){
+                            killWechat();
+                            SystemClock.sleep(30000);
+                            startWechat();
+                            SystemClock.sleep(20000);
                             if (startFinish()){
                                 break;
                             }
@@ -524,6 +532,8 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                     } catch (JSONException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
                         e.printStackTrace();
                     } finally {
                         if (db!=null){
@@ -535,6 +545,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
     }
+
 
     private void killWechat() {
         // 异常时杀死微信，这样就回到主界面了。这样做还有一个好处，保证下次任务开始时微信一定在主界面，从而继续执行任务
@@ -549,20 +560,24 @@ public class MainActivity extends AppCompatActivity {
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean startFinish() {
         // 获取到添加按钮
-        List<AccessibilityNodeInfo> list;
+        List<AccessibilityNodeInfo> list = null;
         long aa = System.currentTimeMillis();
         do {
             AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
             if (bb - aa >= 13000){
                 Log.e("xyz","sss");
+                return false;
+
             }
 
-            list = root.findAccessibilityNodeInfosByText("微信");
+            if (root!=null) {
+                list = root.findAccessibilityNodeInfosByText("微信");
+            }
             SystemClock.sleep(500);
         }while (list == null || list.size() == 0);
 
-        if (list.size() > 0){
+        if (list!=null && list.size() > 0){
             Log.i("xyz","微信启动完成");
             return true;
         }else {
@@ -581,7 +596,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void doTask() throws MyTimeoutException, JSONException {
+    private void doTask() throws MyTimeoutException, JSONException, IOException {
         // 如果数据库中还有status为0的数据，说明上次的数据还处理完成
         if (hasStatusZero()) { // kg
             handler.sendEmptyMessage(71);
@@ -610,14 +625,11 @@ public class MainActivity extends AppCompatActivity {
             JSONObject phoneObject = null;
             JSONArray array  = null;
             while (true) {
-                try {
-                    // TODO
-                    phoneObject = wechatServerHelper.addrlistForTranslateWxid(1, 0, 1000);
-                    array = phoneObject.getJSONArray("phones");
 
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
+                // TODO
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, 0, 1000);
+                array = phoneObject.getJSONArray("phones");
+
                 if (phoneObject != null && array !=null && array.length() > 0 ){
                     break;
                 }
@@ -628,12 +640,8 @@ public class MainActivity extends AppCompatActivity {
 
             list.clear();
             for (int i = 0; i < array.length(); i++) {
-                try {
-                    list.add(array.getString(i));
-                    Log.i("list data",array.getString(i));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                };
+                list.add(array.getString(i));
+                Log.i("list data",array.getString(i));
             }
 
 
@@ -923,7 +931,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private void continueClassify() throws MyTimeoutException {
+    private void continueClassify() throws MyTimeoutException, IOException {
 
         db = helper.getReadableDatabase();
 
@@ -958,7 +966,7 @@ public class MainActivity extends AppCompatActivity {
                 sleepRandom();
                 setCnt(0);
                 // 按两下回车确定
-                pushEnter();
+                pushEnter2();
                 sleepRandom();
                 waitFor(20002);
                 if (getCnt() >= 1) {
@@ -1222,7 +1230,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private void startClassify() throws MyTimeoutException {
+    private void startClassify() throws MyTimeoutException, IOException {
 
         // 查出status状态为0的数据(即未处理的)
         String sql = "select * from "+Constant.TABLE_NAME+" where status = 0";
@@ -1250,7 +1258,7 @@ public class MainActivity extends AppCompatActivity {
 
                 setCnt(0);
                 // 按两下回车确定
-                pushEnter();
+                pushEnter2();
                 waitFor(20000);
                 if (getCnt() >= 1 ){
                     Log.i("xyxz","具体界面");
@@ -1349,7 +1357,7 @@ public class MainActivity extends AppCompatActivity {
                             JSONArray jsonArray = new JSONArray();
                             try {
                                 jsonArray.put(info);
-                                wechatServerHelper.phoneExistenceBat(1,1,jsonArray);
+                                wechatServerHelper.phoneExistenceBat(userId,0,jsonArray);
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             }
@@ -1552,7 +1560,10 @@ public class MainActivity extends AppCompatActivity {
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private CharSequence getArea() {
         AccessibilityNodeInfo root = getRoot();
-        AccessibilityNodeInfo areaInfo = findArea(root);
+        AccessibilityNodeInfo areaInfo = null;
+        if (root!=null){
+             areaInfo = findArea(root);
+        }
         if (areaInfo!=null){
             String area = areaInfo.toString();
             Log.i("xyz","获取到地区： "+area);
@@ -1563,9 +1574,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private AccessibilityNodeInfo findArea(AccessibilityNodeInfo root) {
-        if (root == null){
-            return null;
-        }
+
         AccessibilityNodeInfo res = null;
         for (int i = 0; i < root.getChildCount(); i++) {
             AccessibilityNodeInfo nodeInfo = root.getChild(i);
@@ -1632,7 +1641,9 @@ public class MainActivity extends AppCompatActivity {
         do {
             // 找到左上角的返回键
             AccessibilityNodeInfo root = getRoot();
-            returnInfo = findReturn(root);
+            if (root!=null){
+                returnInfo = findReturn(root);
+            }
             SystemClock.sleep(200);
         }while (returnInfo == null);
 
@@ -1683,10 +1694,12 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isAbnormal() {
         // 获取到添加按钮
-        List<AccessibilityNodeInfo> list;
+        List<AccessibilityNodeInfo> list = null;
         AccessibilityNodeInfo root = getRoot();
-        list = root.findAccessibilityNodeInfosByText("异常");
-        if (list.size() > 0){
+        if (root!=null){
+            list = root.findAccessibilityNodeInfosByText("异常");
+        }
+        if (list!=null && list.size() > 0){
             Log.i("xyz","找到异常");
             return true;
         }else {
@@ -1697,10 +1710,13 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isNonexistent() {
         // 获取到添加按钮
-        List<AccessibilityNodeInfo> list;
+        List<AccessibilityNodeInfo> list = null;
         AccessibilityNodeInfo root = getRoot();
-        list = root.findAccessibilityNodeInfosByText("该用户不存在");
-        if (list.size() > 0){
+        if (root!=null){
+            list = root.findAccessibilityNodeInfosByText("该用户不存在");
+        }
+
+        if (list!=null && list.size() > 0){
             Log.i("xyz","用户不存在");
             return true;
         }else {
@@ -1711,10 +1727,12 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean isFrequent() {
         // 获取到添加按钮
-        List<AccessibilityNodeInfo> list;
+        List<AccessibilityNodeInfo> list = null;
         AccessibilityNodeInfo root = getRoot();
-        list = root.findAccessibilityNodeInfosByText("操作过于频繁");
-        if (list.size() > 0){
+        if (root!=null){
+            list = root.findAccessibilityNodeInfosByText("操作过于频繁");
+        }
+        if (list!=null && list.size() > 0){
             Log.i("xyz","找到操作频繁");
             return true;
         }else {
@@ -1727,14 +1745,14 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private int hasAddBtn() throws MyTimeoutException {
         // 获取到添加按钮
-        List<AccessibilityNodeInfo> list;
+        List<AccessibilityNodeInfo> list = null;
         long aa = System.currentTimeMillis();
         do {
             AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
             if (bb - aa >= 13000){
-                Log.e("xyz","sss");
-                throw new MyTimeoutException("网络异常,没有获取到具体的场景模式");
+                Log.e("xyz","sss99");
+                throw new MyTimeoutException("网络异常,没有获取到具体的场景模式99");
             }
             if (isNonexistent()){
                 return 1;
@@ -1746,7 +1764,9 @@ public class MainActivity extends AppCompatActivity {
                 return 3;
             }
 
-            list = root.findAccessibilityNodeInfosByText("添加");
+            if (root!=null){
+                list = root.findAccessibilityNodeInfosByText("添加");
+            }
             SystemClock.sleep(500);
         }while (list == null || list.size() == 0);
 
@@ -1758,18 +1778,40 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void pushEnter() {
-        // 66 回车
-        String adb = "adb shell input keyevent 66";
-        for (int i = 0; i < 5; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
-            try {
+//    private void pushEnter() {
+//        // 66 回车
+//        String adb = "adb shell input keyevent 66";
+//        for (int i = 0; i < 5; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
+//            try {
+//                Runtime.getRuntime().exec(adb);
+//                Log.i("xyz","执行一次回车");
+//                SystemClock.sleep(200); // 睡眠是为了保证能够两次执行
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
+
+    private void pushEnter2() throws IOException, MyTimeoutException {
+        int errorNum = 0;
+        while (true){
+            String adb = "adb shell input keyevent 66";
+            for (int i = 0; i < 2; i++){ // 这里三次是为了有时网络卡，确保一定会跳转
                 Runtime.getRuntime().exec(adb);
-                Log.i("xyz","执行一次回车");
                 SystemClock.sleep(200); // 睡眠是为了保证能够两次执行
-            } catch (IOException e) {
+            }
+            try{
+                waitFor(3000);
+                break;
+            } catch (MyTimeoutException e) {
                 e.printStackTrace();
+                errorNum ++;
+                if (errorNum > 7){
+                    throw e;
+                }
             }
         }
+
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -1778,7 +1820,9 @@ public class MainActivity extends AppCompatActivity {
         do {
             // 找到界面中的搜索输入框
             AccessibilityNodeInfo root = getRoot();
-            editInfo = findEditText(root);
+            if (root!=null){
+                editInfo = findEditText(root);
+            }
             SystemClock.sleep(200);
         }while (editInfo == null);
 

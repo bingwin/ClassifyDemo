@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ClassifyDemo</string>
+    <string name="app_name">ClassifyDemo 0.1 </string>
     <string name="accessibility_description">手机号分类, 需要安装微信</string>
     <string name="service">手机号分类助手</string>
 </resources>
