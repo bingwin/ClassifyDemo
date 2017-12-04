@@ -57,14 +57,17 @@ public class MyService extends AccessibilityService {
         if (sInstance == null){
             sInstance = this;
         }
-        startWechat();
 
-        sleepMRandom(20,30);
-        // 如果有返回，先按返回
-        while (hasReturn()){
-            finishAndReturn();
-            SystemClock.sleep(300);
-        }
+        do {
+            startWechat();
+            sleepSecondRandom(20,30);
+            // 如果有返回，先按返回
+            while (hasReturn()){
+                finishAndReturn();
+                SystemClock.sleep(300);
+            }
+        }while (!startFinish());
+
 
         if (startFinish()){
 
@@ -86,11 +89,11 @@ public class MyService extends AccessibilityService {
 
 
     // 睡眠秒数。区间段
-    private void sleepMRandom(long startMin,long endMin) {
+    private void sleepSecondRandom(long startSecond,long endSecond) {
         double ran = Math.random();
-        long interval = endMin - startMin;
-        long lon = (long) (startMin  * 1000 + ran * 1000 * interval );
-        SystemClock.sleep(lon);
+        long interval = endSecond - startSecond;
+        long time = (long) (startSecond  * 1000 + ran * 1000 * interval );
+        SystemClock.sleep(time);
     }
 
 

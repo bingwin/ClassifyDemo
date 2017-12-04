@@ -164,6 +164,7 @@ public class WechatServerHelper {
 			if (response != null) {
 				JSONObject resJSON = new JSONObject(response);
 				if(resJSON != null && resJSON.has("result") == true) {
+					Log.i("post", "resJSON = " + resJSON.toString());
 					int result = resJSON.getInt("result");
 					if (result == 1)
 						return true;

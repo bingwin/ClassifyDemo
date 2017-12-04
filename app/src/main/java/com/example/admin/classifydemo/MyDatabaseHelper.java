@@ -20,7 +20,7 @@ public class MyDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String sql = "create table if not exists "+TABLE_NAME +" ("+PHONE+" unique,"+INFO+","+STATUS+")";
+        String sql = "create table if not exists "+TABLE_NAME +" ("+PHONE+" varchar(32) not null unique,"+INFO+" text,"+STATUS+" int)";
         Log.i("sql",sql);
         db.execSQL(sql);
     }
