@@ -19,18 +19,17 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -60,11 +59,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.widget.Toast.LENGTH_SHORT;
-import static com.example.admin.classifydemo.Constant.*;
+import static com.example.admin.classifydemo.Constant.TABLE_NAME;
 import static com.example.admin.classifydemo.MyService.getContext;
 
 
@@ -124,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
     private List<JSONObject> mList4Info = new ArrayList<>();
 
 
-    static volatile AtomicInteger sAtomicFlag1 = new AtomicInteger(0);
+
 
 
     ClipboardManager manager;
@@ -497,6 +495,7 @@ public class MainActivity extends AppCompatActivity {
 
                 while (true) {
                     try {
+                        clearAllList();
                         doTask();
 //                        sleepMinRandom(1,2);
                         sleepSecondRandom(10,20);
@@ -510,9 +509,7 @@ public class MainActivity extends AppCompatActivity {
                             message.obj = "用户点击停止";
                             break;
                         }
-                        if (sAtomicFlag1.get() == 1) {
-                            message.obj = "上传到服务器失败";
-                        }
+
                         handler.sendMessage(message);
 
 //                        killWechat();
@@ -547,6 +544,14 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }).start();
+    }
+
+    private void clearAllList() {
+        mList1.clear();
+        mList2.clear();
+        mList3.clear();
+        mList4Phone.clear();
+        mList4Info.clear();
     }
 
 
@@ -606,7 +611,7 @@ public class MainActivity extends AppCompatActivity {
             continueClassify(); //k
         }
 
-        if (hasData()){ //kg
+        if (hasData()){ // kg
             handler.sendEmptyMessage(8);
 
 
@@ -617,8 +622,6 @@ public class MainActivity extends AppCompatActivity {
             uploadToService(); //kg
         }
 
-
-
         sAtomicFlag.set(0);
         db = helper.getReadableDatabase(); // k
 
@@ -627,26 +630,37 @@ public class MainActivity extends AppCompatActivity {
         JSONArray array  = null;
         while (true) {
 
+
+
             // TODO
-            phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, 0, 1000);
+            phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId,1, 1000);
             array = phoneObject.getJSONArray("phones");
+
 
             if (phoneObject != null && array !=null && array.length() > 0 ){
                 break;
             }
             // 睡眠一段时间，在主界面中显示
             handler.sendEmptyMessage(6);
-            sleepMinRandom(60,70);
+            if (array !=null && array.length() == 0){
+                sleepMinRandom(10,15);
+            }else {
+                sleepSecondRandom(20,30);
+            }
+
         }
 
         list.clear();
-        for (int i = 0; i < array.length(); i++) {
-            String s = array.getString(i);
-            if (!s.equals("")&& s!=null){
-                list.add(array.getString(i));
+        if (array!=null && array.length() >0){
+            for (int i = 0; i < array.length(); i++) {
+                String s = array.getString(i);
+                if (!s.equals("")&& s!=null){
+                    list.add(array.getString(i));
+                }
+                Log.i("list data",array.getString(i));
             }
-            Log.i("list data",array.getString(i));
         }
+
 
 
         if (list == null){
@@ -656,6 +670,8 @@ public class MainActivity extends AppCompatActivity {
             insertData(); // b kg
             // 翻译
             continueClassify();  // k
+
+
             // 上传到服务器
             uploadToService();  // kg
 
@@ -774,15 +790,21 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void uploadToService() throws MyTimeoutException {
-        
+
+        AtomicInteger sAtomicFlag1 = new AtomicInteger(0);
+
         while (true){
-            sAtomicFlag1.set(0);
+
             try {
+                sAtomicFlag1.set(0);
                 // 上传用户不存在
                 uploadToServiceScene1(mList1,3);
             }catch (JSONException e){
                 sAtomicFlag1.set(1);
-                throw new MyTimeoutException("上传用户不存在到服务器失败");
+                Message msg = new Message();
+                msg.what = 1;
+                msg.obj = "上传用户不存在失败";
+                handler.sendMessage(msg);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -797,7 +819,10 @@ public class MainActivity extends AppCompatActivity {
                 uploadToServiceScene1(mList2,4);
             }catch (JSONException e){
                 sAtomicFlag1.set(1);
-                throw new MyTimeoutException("上传用户异常到服务器失败");
+                Message msg = new Message();
+                msg.what = 1;
+                msg.obj = "上传用户异常失败";
+                handler.sendMessage(msg);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -812,7 +837,10 @@ public class MainActivity extends AppCompatActivity {
                 uploadToServiceFrequently(mList3);
             }catch (JSONException e){
                 sAtomicFlag1.set(1);
-                throw new MyTimeoutException("上传用户存在到服务器失败");
+                Message msg = new Message();
+                msg.what = 1;
+                msg.obj = "上传用户存在失败";
+                handler.sendMessage(msg);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -829,7 +857,10 @@ public class MainActivity extends AppCompatActivity {
                 uploadInfoToService(mList4Phone,mList4Info);
             }catch (JSONException e){
                 sAtomicFlag1.set(1);
-                throw new MyTimeoutException("上传用户信息到服务器失败");
+                Message msg = new Message();
+                msg.what = 1;
+                msg.obj = "上传信息失败";
+                handler.sendMessage(msg);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -844,7 +875,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void uploadInfoToService(List<String> phoneList, List<JSONObject> infoList) throws JSONException {
+    private void uploadInfoToService(List<String> phoneList, List<JSONObject> infoList) throws JSONException, MyTimeoutException {
         JSONObject infos = new JSONObject();
         for (int i = 0; i < phoneList.size(); i++) {
             JSONObject infoObject = infoList.get(i);  // 详细信息
@@ -852,7 +883,7 @@ public class MainActivity extends AppCompatActivity {
 
             infos.put(phone,infoObject);        // 总的json数据
         }
-        boolean bb = wechatServerHelper.translateWxidOk(userId,0,infos);
+        boolean bb = wechatServerHelper.translateWxidOk(userId,1,infos);
         if (bb){
             Log.i("uploadToService","translateWxidOk 上传到服务器成功");
 
@@ -867,7 +898,7 @@ public class MainActivity extends AppCompatActivity {
                 db.setTransactionSuccessful();
                 Log.i("uploadToService","translateWxidOk 数据库更新数据事务成功");
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new MyTimeoutException("数据库更新数据事务失败");
             } finally {
                 db.endTransaction();
                 if (db!=null){
@@ -880,7 +911,11 @@ public class MainActivity extends AppCompatActivity {
             mList4Phone.clear();
         }else {
             Log.i("uploadToService","translateWxidOk 上传到服务器失败");
-            sAtomicFlag1.set(1);
+            Message msg = new Message();
+            msg.what = 1;
+            msg.obj = "上传用户信息失败";
+            handler.sendMessage(msg);
+            throw new MyTimeoutException("上传用户信息失败");
         }
 
 
@@ -888,14 +923,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void uploadToServiceFrequently(List<String> list) throws JSONException {
+    private void uploadToServiceFrequently(List<String> list) throws JSONException, MyTimeoutException {
         JSONArray jsonArray = new JSONArray();
         for (String phone:list){
             jsonArray.put(phone);
         }
-        JSONObject object = wechatServerHelper.phoneExistenceBat(userId,0,jsonArray);
+        JSONObject object = wechatServerHelper.phoneExistenceBat(userId,1,jsonArray);
 
         Log.i("post","手机号存在时的返回 JSONObject = "+object);
+
+        if (object==null){
+            Log.i("uploadToService","phoneExistenceBat 上传到服务器失败");
+            Message msg = new Message();
+            msg.what = 1;
+            msg.obj = "上传用户存在失败";
+            handler.sendMessage(msg);
+            throw new MyTimeoutException("上传用户存在失败");
+        }
         int i = object.getInt("result");
 
         if (i == 1){
@@ -911,7 +955,7 @@ public class MainActivity extends AppCompatActivity {
                 db.setTransactionSuccessful();
                 Log.i("uploadToService","phoneExistenceBat 数据库更新数据事务成功");
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new MyTimeoutException("数据库更新数据事务失败");
             } finally {
                 db.endTransaction();
                 if (db!=null){
@@ -923,7 +967,11 @@ public class MainActivity extends AppCompatActivity {
             mList3.clear();
         }else if (i == 0){
             Log.i("uploadToService","phoneExistenceBat 上传到服务器失败");
-            sAtomicFlag1.set(1);
+            Message msg = new Message();
+            msg.what = 1;
+            msg.obj = "上传用户存在失败";
+            handler.sendMessage(msg);
+            throw new MyTimeoutException("上传用户存在失败");
         }
     }
 
@@ -1154,14 +1202,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void insertData() {
         // 利用事务每次先把数据插入数据库中
+
         db.beginTransaction();
-        for (String info :list){
-            String insert = "insert into "+ Constant.TABLE_NAME +" values("+info+",' ',0)";
-            Log.i("sql",insert);
-            db.execSQL(insert);
+        try {
+            for (String info :list){
+                String insert = "insert into "+ Constant.TABLE_NAME +" values("+info+",' ',0)";
+                Log.i("sql",insert);
+                db.execSQL(insert);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
-        db.setTransactionSuccessful();
-        db.endTransaction();
+
         Log.i("sql","利用事务每次先把数据插入数据库完成");
     }
 
@@ -1356,13 +1409,13 @@ public class MainActivity extends AppCompatActivity {
                             finishAndReturn();
 
 
-                            JSONArray jsonArray = new JSONArray();
-                            try {
-                                jsonArray.put(info);
-                                wechatServerHelper.phoneExistenceBat(userId,0,jsonArray);
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            }
+//                            JSONArray jsonArray = new JSONArray();
+//                            try {
+//                                jsonArray.put(info);
+//                                wechatServerHelper.phoneExistenceBat(userId,0,jsonArray);
+//                            } catch (JSONException e) {
+//                                e.printStackTrace();
+//                            }
 
                             break;
 
@@ -1470,7 +1523,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void uploadToServiceScene1(List<String> list, int i) throws JSONException {
+    private void uploadToServiceScene1(List<String> list, int i) throws JSONException, MyTimeoutException {
         int j = 0;
         if (i == 3){
             j = 11;
@@ -1484,7 +1537,7 @@ public class MainActivity extends AppCompatActivity {
             Log.i("uploadToService","用户的 object = "+object.toString());
             array.put(object);
         }
-        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(userId,0,array);
+        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(userId,1,array);
         Log.i("uploadToService","上传到服务器uploadPhoneBlacklistBySpaceid    : "+ zzz);
 
         if (zzz){
@@ -1501,7 +1554,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Log.i("uploadToService","uploadPhoneBlacklistBySpaceid 数据库更新数据事务成功");
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new MyTimeoutException("数据库更新数据事务失败");
             } finally {
                 db.endTransaction();
                 if (db!=null){
@@ -1517,7 +1570,11 @@ public class MainActivity extends AppCompatActivity {
             }
         }else {
             Log.i("uploadToService","uploadPhoneBlacklistBySpaceid 上传到服务器失败");
-            sAtomicFlag1.set(1);
+            Message msg = new Message();
+            msg.what = 1;
+            msg.obj = "上传用户不存在/异常失败";
+            handler.sendMessage(msg);
+            throw new MyTimeoutException("上传用户不存在/异常失败");
         }
 
     }
@@ -1764,13 +1821,13 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (root!=null){
-                list = root.findAccessibilityNodeInfosByText("添加");
+                list = root.findAccessibilityNodeInfosByText("设置备注");
             }
             SystemClock.sleep(500);
         }while (list == null || list.size() == 0);
 
         if (list.size() > 0){
-            Log.i("xyz","找到添加按钮");
+            Log.i("xyz","找到设置备住");
             return 4;
         }else {
             throw new MyTimeoutException("网络异常,没有获取到具体的场景模式");
