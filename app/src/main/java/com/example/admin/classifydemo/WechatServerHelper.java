@@ -467,10 +467,11 @@ public class WechatServerHelper {
 	/**
 	 * 向后台请求phones，用于手机号转换为wxid
 	 */
-	public JSONObject addrlistForTranslateWxid(int userid, int spaceid, int num) throws JSONException {
+	public JSONObject addrlistForTranslateWxid(int userid, int spaceid, int num , int bForTranslate) throws JSONException {
 		JSONObject postData = new JSONObject();
 		postData.put("userid", userid);
 		postData.put("spaceid", spaceid);
+		postData.put("bForTranslate", bForTranslate);
 		postData.put("num", num);
 		String url = BASE_URL + "material/addrlist_forTranslateWxid";
 		return postDataToServerAndGetRes(url, postData);
@@ -487,7 +488,9 @@ public class WechatServerHelper {
 		String url = BASE_URL + "material/translateWxid_ok";
 		return postDataToServerAndRetResult(url, postData);
 	}
-	
+
+
+
 	/**
 	 * 请求wxid，用于wxid加人
 	 */

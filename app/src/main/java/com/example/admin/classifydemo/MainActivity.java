@@ -19,17 +19,18 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -59,10 +60,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static android.widget.Toast.LENGTH_SHORT;
-import static com.example.admin.classifydemo.Constant.TABLE_NAME;
+import static com.example.admin.classifydemo.Constant.*;
 import static com.example.admin.classifydemo.MyService.getContext;
 
 
@@ -132,6 +134,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String SP_XWX_PATH = "/data/data/com.guru.Xwx_module/shared_prefs/wechatInfo.xml";
     private int userId;
 
+    // TODO spaceID
+    private static final int spaceId = -1;
+
+
+    // TODO 翻译模式 1为开
+    private static final int translate = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -191,6 +200,7 @@ public class MainActivity extends AppCompatActivity {
                         Date curDate = new Date(System.currentTimeMillis());
                         String date = format.format(curDate);
                         tvEndTime.setText(date);
+
                         break;
                     case 2: // 软件界面
                         int i = msg.arg1;
@@ -235,6 +245,7 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(MainActivity.this,"数据库上传到服务器成功",Toast.LENGTH_SHORT).show();
                         tvError.setText("任务完成");
                         break;
+
                 }
                 super.handleMessage(msg);
             }
@@ -259,6 +270,9 @@ public class MainActivity extends AppCompatActivity {
                                 message.obj = "用户点击停止";
                             }
                             handler.sendMessage(message);
+                            if ( e.m_type == 1){
+                                sleepSecondRandom(120,150);
+                            }
                         } catch (IOException e) {
                             e.printStackTrace();
                         } finally {
@@ -321,6 +335,11 @@ public class MainActivity extends AppCompatActivity {
                                         message.obj = "用户点击停止";
                                     }
                                     handler.sendMessage(message);
+
+
+                                    if ( e.m_type == 1){
+                                        sleepSecondRandom(120,150);
+                                    }
                                 } catch (IOException e) {
                                     e.printStackTrace();
                                 } finally {
@@ -509,9 +528,11 @@ public class MainActivity extends AppCompatActivity {
                             message.obj = "用户点击停止";
                             break;
                         }
-
                         handler.sendMessage(message);
 
+                        if ( e.m_type == 1){
+                            sleepSecondRandom(120,150);
+                        }
 //                        killWechat();
 //
 //                        sleepMinRandom(1,2);
@@ -630,10 +651,12 @@ public class MainActivity extends AppCompatActivity {
         JSONArray array  = null;
         while (true) {
 
-
-
-            // TODO
-            phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId,1, 1000);
+            // TODO  后台获取的接口
+            if (translate == 1){
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, 1000,1);
+            }else {
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, 1000,0);
+            }
             array = phoneObject.getJSONArray("phones");
 
 
@@ -789,7 +812,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void uploadToService() throws MyTimeoutException {
+    private void uploadToService() throws MyTimeoutException{
 
         AtomicInteger sAtomicFlag1 = new AtomicInteger(0);
 
@@ -799,12 +822,14 @@ public class MainActivity extends AppCompatActivity {
                 sAtomicFlag1.set(0);
                 // 上传用户不存在
                 uploadToServiceScene1(mList1,3);
-            }catch (JSONException e){
+            }catch (Exception e){
                 sAtomicFlag1.set(1);
                 Message msg = new Message();
                 msg.what = 1;
                 msg.obj = "上传用户不存在失败";
                 handler.sendMessage(msg);
+//                sleepSecondRandom(10,11);
+                sleepMinRandom(1,3);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -817,12 +842,13 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // 上传用户异常
                 uploadToServiceScene1(mList2,4);
-            }catch (JSONException e){
+            }catch (Exception e){
                 sAtomicFlag1.set(1);
                 Message msg = new Message();
                 msg.what = 1;
-                msg.obj = "上传用户异常失败";
+                msg.obj = "上传用户频繁失败";
                 handler.sendMessage(msg);
+                sleepMinRandom(1,3);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -835,12 +861,13 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // 上传用户存在（频繁搜索）
                 uploadToServiceFrequently(mList3);
-            }catch (JSONException e){
+            }catch (Exception e){
                 sAtomicFlag1.set(1);
                 Message msg = new Message();
                 msg.what = 1;
                 msg.obj = "上传用户存在失败";
                 handler.sendMessage(msg);
+                sleepMinRandom(1,3);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -855,12 +882,13 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // 上传信息
                 uploadInfoToService(mList4Phone,mList4Info);
-            }catch (JSONException e){
+            }catch (Exception e){
                 sAtomicFlag1.set(1);
                 Message msg = new Message();
                 msg.what = 1;
                 msg.obj = "上传信息失败";
                 handler.sendMessage(msg);
+                sleepMinRandom(1,3);
             }finally {
                 if (sAtomicFlag1.get() != 1){
                     break;
@@ -876,6 +904,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void uploadInfoToService(List<String> phoneList, List<JSONObject> infoList) throws JSONException, MyTimeoutException {
+
+
         JSONObject infos = new JSONObject();
         for (int i = 0; i < phoneList.size(); i++) {
             JSONObject infoObject = infoList.get(i);  // 详细信息
@@ -883,7 +913,9 @@ public class MainActivity extends AppCompatActivity {
 
             infos.put(phone,infoObject);        // 总的json数据
         }
-        boolean bb = wechatServerHelper.translateWxidOk(userId,1,infos);
+
+        boolean bb = wechatServerHelper.translateWxidOk(userId,spaceId,infos);
+
         if (bb){
             Log.i("uploadToService","translateWxidOk 上传到服务器成功");
 
@@ -892,7 +924,7 @@ public class MainActivity extends AppCompatActivity {
                 db = helper.getReadableDatabase();
                 db.beginTransaction();
                 for (String phone: phoneList){
-                    String s = "update "+TABLE_NAME +" set status = 14 where phone = "+phone;
+                    String s = "update "+TABLE_NAME +" set status = 14 where phone = '"+phone+"'";
                     db.execSQL(s);
                 }
                 db.setTransactionSuccessful();
@@ -928,7 +960,8 @@ public class MainActivity extends AppCompatActivity {
         for (String phone:list){
             jsonArray.put(phone);
         }
-        JSONObject object = wechatServerHelper.phoneExistenceBat(userId,1,jsonArray);
+
+        JSONObject object = wechatServerHelper.phoneExistenceBat(userId,spaceId,jsonArray);
 
         Log.i("post","手机号存在时的返回 JSONObject = "+object);
 
@@ -949,7 +982,7 @@ public class MainActivity extends AppCompatActivity {
                 db = helper.getReadableDatabase();
                 db.beginTransaction();
                 for (String phone: list){
-                    String s = "update "+TABLE_NAME +" set status = 13 where phone = "+phone;
+                    String s = "update "+TABLE_NAME +" set status = 13 where phone = '"+phone+"'";
                     db.execSQL(s);
                 }
                 db.setTransactionSuccessful();
@@ -964,7 +997,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            mList3.clear();
+            list.clear();
         }else if (i == 0){
             Log.i("uploadToService","phoneExistenceBat 上传到服务器失败");
             Message msg = new Message();
@@ -1074,15 +1107,21 @@ public class MainActivity extends AppCompatActivity {
                             break;
 
                         case 3:// 操作频繁，用户存在
-                            type = 3;
-                            if (sAtomicFlag.get() == 1) {
-                                throw new MyTimeoutException("用户点击停止");
-                            }
 
-                            updateData(type, info);
-                            finishAndReturn();
+                            if (translate == 1){
+                                // jia toast
+                                finishAndReturn();
+                                throw new MyTimeoutException("当前为翻译模式，操作已频繁,将睡眠一段时间再重试",1);
+                            }else {
+                                type = 3;
+                                if (sAtomicFlag.get() == 1) {
+                                    throw new MyTimeoutException("用户点击停止");
+                                }
 
-                            mList3.add(info);
+                                updateData(type, info);
+                                finishAndReturn();
+
+                                mList3.add(info);
 //                            JSONArray jsonArray = new JSONArray();
 //                            try {
 //                                jsonArray.put(info);
@@ -1090,7 +1129,9 @@ public class MainActivity extends AppCompatActivity {
 //                            } catch (JSONException e) {
 //                                e.printStackTrace();
 //                            }
-                            break;
+                                break;
+                            }
+
 
                         case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
                             Log.i("xyxz", "用户信息存在");
@@ -1206,7 +1247,7 @@ public class MainActivity extends AppCompatActivity {
         db.beginTransaction();
         try {
             for (String info :list){
-                String insert = "insert into "+ Constant.TABLE_NAME +" values("+info+",' ',0)";
+                String insert = "insert into "+ Constant.TABLE_NAME +" values('"+info+"',' ',0)";
                 Log.i("sql",insert);
                 db.execSQL(insert);
             }
@@ -1395,18 +1436,23 @@ public class MainActivity extends AppCompatActivity {
                             break;
 
                         case 3:// 操作频繁，用户存在
-                            type = 3;
-                            if (sAtomicFlag.get() == 1){
-                                throw new MyTimeoutException("用户点击停止");
-                            }
-                            // 判断结果,输出到文本中
-                            try {
-                                writeToLocal(type,info);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                            updateData(type,info);
-                            finishAndReturn();
+
+                            if (translate == 1){
+                                finishAndReturn();
+                                throw new MyTimeoutException("当前为翻译模式，操作已频繁,将睡眠一段时间再重试",1);
+                            }else {
+                                type = 3;
+                                if (sAtomicFlag.get() == 1) {
+                                    throw new MyTimeoutException("用户点击停止");
+                                }
+                                // 判断结果,输出到文本中
+                                try {
+                                    writeToLocal(type, info);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                                updateData(type, info);
+                                finishAndReturn();
 
 
 //                            JSONArray jsonArray = new JSONArray();
@@ -1417,7 +1463,8 @@ public class MainActivity extends AppCompatActivity {
 //                                e.printStackTrace();
 //                            }
 
-                            break;
+                                break;
+                            }
 
                         case 4:// 界面中有添加按钮,用户存在，添加不频繁。第4 种情况 .
                             Log.i("xyxz","用户信息存在");
@@ -1537,7 +1584,8 @@ public class MainActivity extends AppCompatActivity {
             Log.i("uploadToService","用户的 object = "+object.toString());
             array.put(object);
         }
-        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(userId,1,array);
+
+        boolean zzz = wechatServerHelper.uploadPhoneBlacklistBySpaceid(userId,spaceId,array);
         Log.i("uploadToService","上传到服务器uploadPhoneBlacklistBySpaceid    : "+ zzz);
 
         if (zzz){
@@ -1547,7 +1595,7 @@ public class MainActivity extends AppCompatActivity {
                 db = helper.getReadableDatabase();
                 db.beginTransaction();
                 for (String phone: list){
-                    String s = "update "+TABLE_NAME +" set status = "+ j+" where phone = "+phone;
+                    String s = "update "+TABLE_NAME +" set status = "+ j+" where phone = '"+phone+"'";
                     db.execSQL(s);
                 }
                 db.setTransactionSuccessful();
@@ -1599,7 +1647,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateDataScene2(String phone,String info){
-        String s = "update "+TABLE_NAME +" set info = '"+info +"' ,status = 4 where phone = "+phone;
+        String s = "update "+TABLE_NAME +" set info = '"+info +"' ,status = 4 where phone = '"+phone+"'";
         db.execSQL(s);
     }
 
@@ -1662,13 +1710,13 @@ public class MainActivity extends AppCompatActivity {
         if (type == 1){         // 用户不存在
 //            UPDATE Person SET Address = 'Zhongshan 23', City = 'Nanjing'
 //            WHERE LastName = 'Wilson'
-            String  s = "update "+TABLE_NAME+" set status = 1 where phone = "+info;
+            String  s = "update "+TABLE_NAME+" set status = 1 where phone = '"+info+"'";
             db.execSQL(s);
         }else if (type == 2){   // 用户状态异常
-            String  s = "update "+TABLE_NAME+" set status = 2 where phone = "+info;
+            String  s = "update "+TABLE_NAME+" set status = 2 where phone = '"+info+"'";
             db.execSQL(s);
         }else if (type == 3){   // 用户存在，但是频繁
-            String  s = "update "+TABLE_NAME+" set status = 3  where phone = "+info;
+            String  s = "update "+TABLE_NAME+" set status = 3 where phone = '"+info+"'";
             db.execSQL(s);
         }
     }
@@ -1711,8 +1759,10 @@ public class MainActivity extends AppCompatActivity {
             while (returnInfo!=null && !returnInfo.isClickable()) {
                 returnInfo = returnInfo.getParent();
             }
-            // 点击返回
-            returnInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            if (returnInfo!=null){
+                // 点击返回
+                returnInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            }
         }
     }
 
