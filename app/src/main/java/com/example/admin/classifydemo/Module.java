@@ -147,6 +147,8 @@ public class Module implements IXposedHookLoadPackage {
                                     signature = sqliteEscape(signature);
                                 }
 
+
+
                                 int flag = 1;
 
                                 resolver = applicationContext.getContentResolver();

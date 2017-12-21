@@ -191,7 +191,6 @@ public class MyService extends AccessibilityService {
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean startFinish()  {
-        // 获取到添加按钮
         List<AccessibilityNodeInfo> list;
         long aa = System.currentTimeMillis();
         do {

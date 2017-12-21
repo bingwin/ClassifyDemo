@@ -134,12 +134,15 @@ public class MainActivity extends AppCompatActivity {
     private static final String SP_XWX_PATH = "/data/data/com.guru.Xwx_module/shared_prefs/wechatInfo.xml";
     private int userId;
 
-    // TODO spaceID
-    private static final int spaceId = -1;
+    // TODO spaceID , 过滤为 1 (179)或 0 ，翻译为 -1,
+    private static final int spaceId = 1;
 
 
-    // TODO 翻译模式 1为开
-    private static final int translate = 1;
+    // TODO 翻译模式 1 为开, 0 为关，即过滤
+    private static final int translate = 0;
+
+    // TODO 每次获取列表的数量
+    private static final int num = 50;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -271,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                             handler.sendMessage(message);
                             if ( e.m_type == 1){
-                                sleepSecondRandom(120,150);
+                                sleepMinRandom(120,150);
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -338,7 +341,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                                     if ( e.m_type == 1){
-                                        sleepSecondRandom(120,150);
+                                        sleepMinRandom(120,150);
                                     }
                                 } catch (IOException e) {
                                     e.printStackTrace();
@@ -531,7 +534,7 @@ public class MainActivity extends AppCompatActivity {
                         handler.sendMessage(message);
 
                         if ( e.m_type == 1){
-                            sleepSecondRandom(120,150);
+                            sleepMinRandom(120,150);
                         }
 //                        killWechat();
 //
@@ -653,11 +656,13 @@ public class MainActivity extends AppCompatActivity {
 
             // TODO  后台获取的接口
             if (translate == 1){
-                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, 1000,1);
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, num,1);
             }else {
-                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, 1000,0);
+                phoneObject = wechatServerHelper.addrlistForTranslateWxid(userId, spaceId, num,0);
             }
-            array = phoneObject.getJSONArray("phones");
+            if (phoneObject != null){
+                array = phoneObject.getJSONArray("phones");
+            }
 
 
             if (phoneObject != null && array !=null && array.length() > 0 ){
@@ -665,10 +670,10 @@ public class MainActivity extends AppCompatActivity {
             }
             // 睡眠一段时间，在主界面中显示
             handler.sendEmptyMessage(6);
-            if (array !=null && array.length() == 0){
-                sleepMinRandom(10,15);
+            if (array !=null && array.length() == 0){ // 后台返回数据为空
+                sleepMinRandom(1,2);
             }else {
-                sleepSecondRandom(20,30);
+                sleepSecondRandom(20,30); // 代码出错
             }
 
         }
@@ -846,7 +851,7 @@ public class MainActivity extends AppCompatActivity {
                 sAtomicFlag1.set(1);
                 Message msg = new Message();
                 msg.what = 1;
-                msg.obj = "上传用户频繁失败";
+                msg.obj = "上传用户异常失败";
                 handler.sendMessage(msg);
                 sleepMinRandom(1,3);
             }finally {
@@ -997,7 +1002,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            list.clear();
+            mList3.clear();
         }else if (i == 0){
             Log.i("uploadToService","phoneExistenceBat 上传到服务器失败");
             Message msg = new Message();
@@ -1179,7 +1184,6 @@ public class MainActivity extends AppCompatActivity {
 
                                 String s = jsonObject.toString();
 
-                                updateDataScene2(info, s);
 
 //                                try {
 //                                    JSONObject phone = new JSONObject();
@@ -1220,6 +1224,9 @@ public class MainActivity extends AppCompatActivity {
                                 ContentValues values = new ContentValues();
                                 values.put("flag", 0);
                                 resolver.update(uri, values, null, null);
+
+                                updateDataScene2(info, s);
+
 
                                 finishAndReturn();
 //                                sleepRandom();
