@@ -36,15 +36,15 @@
         android:layout_marginTop="14dp"
         android:hint="保存到本地的路径为 sdcard/tmp/" />
 
-    <Button
-        android:id="@+id/start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/textView11"
-        android:layout_alignStart="@+id/textView11"
-        android:layout_below="@+id/textView11"
-        android:layout_marginTop="25dp"
-        android:text="开始" />
+    <!--<Button-->
+        <!--android:id="@+id/start"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_alignLeft="@+id/textView11"-->
+        <!--android:layout_alignStart="@+id/textView11"-->
+        <!--android:layout_below="@+id/textView11"-->
+        <!--android:layout_marginTop="25dp"-->
+        <!--android:text="开始" />-->
 
     <TextView
         android:layout_width="wrap_content"
@@ -53,7 +53,7 @@
         android:layout_alignStart="@+id/textView"
         android:layout_below="@+id/textView"
         android:layout_marginTop="14dp"
-        android:text="信息: "
+        android:text="错误信息: "
         android:id="@+id/textView3" />
 
     <TextView
@@ -139,33 +139,51 @@
         android:layout_centerHorizontal="true"
         android:text="0" />
 
-    <Button
-        android:id="@+id/stop"
+    <TextView
+        android:id="@+id/textView2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/start"
-        android:layout_alignBottom="@+id/start"
-        android:layout_alignEnd="@+id/tv_hint"
-        android:layout_alignRight="@+id/tv_hint"
-        android:text="停止" />
+        android:layout_alignLeft="@+id/textView11"
+        android:layout_alignStart="@+id/textView11"
+        android:layout_below="@+id/textView11"
+        android:layout_marginTop="15dp"
+        android:text=" 信息 : " />
 
-    <Button
-        android:id="@+id/jixu"
+    <TextView
+        android:id="@+id/currentPhone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/serviceBtn"
+        android:layout_alignBottom="@+id/textView2"
         android:layout_centerHorizontal="true"
-        android:text="继续" />
+        android:text="无" />
 
-    <Button
-        android:id="@+id/serviceBtn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/stop"
-        android:layout_marginTop="21dp"
-        android:layout_centerHorizontal="true"
+    <!--<Button-->
+        <!--android:id="@+id/stop"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_alignBaseline="@+id/start"-->
+        <!--android:layout_alignBottom="@+id/start"-->
+        <!--android:layout_alignEnd="@+id/tv_hint"-->
+        <!--android:layout_alignRight="@+id/tv_hint"-->
+        <!--android:text="停止" />-->
 
-        android:text="服务器模式" />
+    <!--<Button-->
+        <!--android:id="@+id/jixu"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_above="@+id/serviceBtn"-->
+        <!--android:layout_centerHorizontal="true"-->
+        <!--android:text="继续" />-->
+
+    <!--<Button-->
+        <!--android:id="@+id/serviceBtn"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_below="@+id/stop"-->
+        <!--android:layout_marginTop="21dp"-->
+        <!--android:layout_centerHorizontal="true"-->
+
+        <!--android:text="服务器模式" />-->
 
 
 

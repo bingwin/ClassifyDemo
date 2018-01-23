@@ -165,8 +165,6 @@ public class Module implements IXposedHookLoadPackage {
 
                                 Log.i("xyzz","module插入数据");
                             }
-
-
                         }
                     }
                 }

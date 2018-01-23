@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
     private String filePath;
     private List<String> list = new ArrayList<>();
 
-    private Button btnStart;
+//    private Button btnStart;
 
     private AccessibilityService mService;
 
@@ -106,15 +106,15 @@ public class MainActivity extends AppCompatActivity {
     private MyDatabaseHelper helper;
     private SQLiteDatabase db;
 
-    Button btnStop;
+//    Button btnStop;
 
-    Button btnContinue;
+//    Button btnContinue;
 
     static volatile AtomicInteger sAtomicFlag = new AtomicInteger(0);
 
     WechatServerHelper wechatServerHelper;
 
-    Button btnService;
+//    Button btnService;
 
 
     private List<String> mList1 = new ArrayList<>();
@@ -123,10 +123,6 @@ public class MainActivity extends AppCompatActivity {
     private List<String> mList4Phone = new ArrayList<>();
     private List<JSONObject> mList4Info = new ArrayList<>();
 
-
-
-
-
     ClipboardManager manager;
 
 
@@ -134,15 +130,18 @@ public class MainActivity extends AppCompatActivity {
     private static final String SP_XWX_PATH = "/data/data/com.guru.Xwx_module/shared_prefs/wechatInfo.xml";
     private int userId;
 
-    // TODO spaceID , 过滤为 1 (179)或 0 ，翻译为 -1,
+    // TODO spaceID , 过滤为 1 (客户 155)或 0 ，翻译为 -1,
     private static final int spaceId = 1;
-
 
     // TODO 翻译模式 1 为开, 0 为关，即过滤
     private static final int translate = 0;
 
     // TODO 每次获取列表的数量
     private static final int num = 50;
+
+    private TextView tvCurrentPhone;
+
+    private String mTempText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -183,14 +182,16 @@ public class MainActivity extends AppCompatActivity {
 
         manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
+        tvCurrentPhone = findViewById(R.id.currentPhone);
 
-        btnStop = findViewById(R.id.stop);
-        btnStop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sAtomicFlag.set(1);
-            }
-        });
+
+//        btnStop = findViewById(R.id.stop);
+//        btnStop.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                sAtomicFlag.set(1);
+//            }
+//        });
 
         handler = new Handler(){
             @Override
@@ -209,10 +210,15 @@ public class MainActivity extends AppCompatActivity {
                         int i = msg.arg1;
                         tvNum.setText(""+i);
                         String info = (String) msg.obj;
-                        // 吐司
-                        Toast.makeText(MainActivity.this,"翻译"+info+"完成，当前已翻译 "+i +"/"+sum,Toast.LENGTH_SHORT).show();
+//                        // 吐司
+//                        Toast.makeText(MainActivity.this,"翻译"+info+"完成，当前已翻译 "+i +"/"+sum,Toast.LENGTH_SHORT).show();
+
+                        mTempText = "翻译"+info+"完成，当前已翻译 "+i +"/"+sum;
+//                        tvCurrentPhone.setText("翻译"+info+"完成，当前已翻译 "+i +"/"+sum);
                         if (i == list.size()){
-                            Toast.makeText(MainActivity.this,"翻译完成",Toast.LENGTH_SHORT).show();
+//                            Toast.makeText(MainActivity.this,"翻译完成",Toast.LENGTH_SHORT).show();
+//                            tvCurrentPhone.setText("翻译完成");
+                            mTempText = "翻译完成";
                         }
                         break;
                     case 3: // 正常结束时间
@@ -225,7 +231,8 @@ public class MainActivity extends AppCompatActivity {
                         tvSum.setText(""+j);
                         break;
                     case 5:
-                        Toast.makeText(MainActivity.this,"list列表为空" ,Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(MainActivity.this,"list列表为空" ,Toast.LENGTH_SHORT).show();
+                        mTempText = "list列表为空";
                         break;
 
                     case 6:
@@ -236,16 +243,24 @@ public class MainActivity extends AppCompatActivity {
                         tvEndTime.setText(ss);
                         break;
                     case 7:
-                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务",Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务",Toast.LENGTH_SHORT).show();
+//                        tvCurrentPhone.setText("上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务");
+                        mTempText = "上次翻译还有未完成的任务,将继续执行任务，可点击继续按钮或者选择新的任务";
                         break;
                     case 71:
-                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的翻译任务,将自动继续执行任务",Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(MainActivity.this,"上次翻译还有未完成的翻译任务,将自动继续执行任务",Toast.LENGTH_SHORT).show();
+//                        tvCurrentPhone.setText("上次翻译还有未完成的翻译任务,将自动继续执行任务");
+                        mTempText = "上次翻译还有未完成的翻译任务,将自动继续执行任务";
                         break;
                     case 8:
-                        Toast.makeText(MainActivity.this,"数据库还有未上传到服务器的数据,将自动上传",Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(MainActivity.this,"数据库还有未上传到服务器的数据,将自动上传",Toast.LENGTH_SHORT).show();
+//                        tvCurrentPhone.setText("数据库还有未上传到服务器的数据,将自动上传");
+                        mTempText = "数据库还有未上传到服务器的数据,将自动上传";
                         break;
                     case 9:
-                        Toast.makeText(MainActivity.this,"数据库上传到服务器成功",Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(MainActivity.this,"数据库上传到服务器成功",Toast.LENGTH_SHORT).show();
+//                        tvCurrentPhone.setText("数据库上传到服务器成功");
+                        mTempText = "数据库上传到服务器成功";
                         tvError.setText("任务完成");
                         break;
 
@@ -253,128 +268,128 @@ public class MainActivity extends AppCompatActivity {
                 super.handleMessage(msg);
             }
         };
-        btnContinue = findViewById(R.id.jixu);
-        btnContinue.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+//        btnContinue = findViewById(R.id.jixu);
+//        btnContinue.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//
+//                new Thread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Looper.prepare();
+//                        try {
+//                            continueClassify();  // 继续分类
+//                        }catch (MyTimeoutException e) {
+//                            e.printStackTrace();
+//                            Message message = new Message();
+//                            message.what = 1;
+//                            message.obj = e.getMessage();
+//                            if (sAtomicFlag.get() ==1){
+//                                message.obj = "用户点击停止";
+//                            }
+//                            handler.sendMessage(message);
+//                            if ( e.m_type == 1){
+//                                sleepMinRandom(120,150);
+//                            }
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                        } finally {
+//                            db.close();
+//                        }
+//                        Looper.loop();
+//                    }
+//                }).start();
+//            }
+//        });
 
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Looper.prepare();
-                        try {
-                            continueClassify();  // 继续分类
-                        }catch (MyTimeoutException e) {
-                            e.printStackTrace();
-                            Message message = new Message();
-                            message.what = 1;
-                            message.obj = e.getMessage();
-                            if (sAtomicFlag.get() ==1){
-                                message.obj = "用户点击停止";
-                            }
-                            handler.sendMessage(message);
-                            if ( e.m_type == 1){
-                                sleepMinRandom(120,150);
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } finally {
-                            db.close();
-                        }
-                        Looper.loop();
-                    }
-                }).start();
-            }
-        });
-
-
-        btnStart = findViewById(R.id.start);
-        btnStart.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sAtomicFlag.set(0);
-                db = helper.getReadableDatabase();
-
-                // 初始化文件
-                try {
-                    initFile();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                if(list == null){
-                    Toast.makeText(MainActivity.this,"选择文件的列表为空,请检查路径是否正确",Toast.LENGTH_SHORT).show();
-                }else {
-                    if (isWxAvailable()){
-                        sum = list.size();
-                        Log.i("mdzz","list = "+ sum);
-                        tvSum.setText(""+sum);
-
-                        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
-                        Date curDate = new Date(System.currentTimeMillis());
-                        String date = format.format(curDate);
-                        tvStartTime.setText(date);
-
-                        // 一进来就清空表的数据
-                        db.execSQL("delete from "+TABLE_NAME);
-
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Looper.prepare();
-                                try {
-                                    // 插入数据
-                                    insertData();
-                                    startClassify();  // 开始分类
-
-                                } catch (MyTimeoutException e) {
-                                    e.printStackTrace();
-                                    // 更新界面，将错误信息输出到ui界面中
-
-                                    Message message = new Message();
-                                    message.what = 1;
-                                    message.obj = e.getMessage();
-                                    if (sAtomicFlag.get() ==1){
-                                        message.obj = "用户点击停止";
-                                    }
-                                    handler.sendMessage(message);
-
-
-                                    if ( e.m_type == 1){
-                                        sleepMinRandom(120,150);
-                                    }
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                } finally {
-                                    db.close();
-                                    try {
-                                        fos1.close();
-                                        fos2.close();
-                                        fos3.close();
-                                        fos4.close();
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
-                                Looper.loop();
-                            }
-                        }).start();
-                    }else {
-                        Toast.makeText(MainActivity.this,"微信尚未安装",Toast.LENGTH_SHORT).show();
-                    }
-                }
-            }
-        });
+//
+//        btnStart = findViewById(R.id.start);
+//        btnStart.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                sAtomicFlag.set(0);
+//                db = helper.getReadableDatabase();
+//
+//                // 初始化文件
+//                try {
+//                    initFile();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//
+//                if(list == null){
+//                    Toast.makeText(MainActivity.this,"选择文件的列表为空,请检查路径是否正确",Toast.LENGTH_SHORT).show();
+//                }else {
+//                    if (isWxAvailable()){
+//                        sum = list.size();
+//                        Log.i("mdzz","list = "+ sum);
+//                        tvSum.setText(""+sum);
+//
+//                        SimpleDateFormat format = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+//                        Date curDate = new Date(System.currentTimeMillis());
+//                        String date = format.format(curDate);
+//                        tvStartTime.setText(date);
+//
+//                        // 一进来就清空表的数据
+//                        db.execSQL("delete from "+TABLE_NAME);
+//
+//                        new Thread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                Looper.prepare();
+//                                try {
+//                                    // 插入数据
+//                                    insertData();
+//                                    startClassify();  // 开始分类
+//
+//                                } catch (MyTimeoutException e) {
+//                                    e.printStackTrace();
+//                                    // 更新界面，将错误信息输出到ui界面中
+//
+//                                    Message message = new Message();
+//                                    message.what = 1;
+//                                    message.obj = e.getMessage();
+//                                    if (sAtomicFlag.get() ==1){
+//                                        message.obj = "用户点击停止";
+//                                    }
+//                                    handler.sendMessage(message);
+//
+//
+//                                    if ( e.m_type == 1){
+//                                        sleepMinRandom(120,150);
+//                                    }
+//                                } catch (IOException e) {
+//                                    e.printStackTrace();
+//                                } finally {
+//                                    db.close();
+//                                    try {
+//                                        fos1.close();
+//                                        fos2.close();
+//                                        fos3.close();
+//                                        fos4.close();
+//                                    } catch (IOException e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//                                Looper.loop();
+//                            }
+//                        }).start();
+//                    }else {
+//                        Toast.makeText(MainActivity.this,"微信尚未安装",Toast.LENGTH_SHORT).show();
+//                    }
+//                }
+//            }
+//        });
 
 
 
-        btnService = findViewById(R.id.serviceBtn);
-        btnService.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                autoDoTask();
-            }
-        });
+//        btnService = findViewById(R.id.serviceBtn);
+//        btnService.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                autoDoTask();
+//            }
+//        });
 
 
         Bundle bundle = getIntent().getExtras();
@@ -410,10 +425,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        tvCurrentPhone.setText(mTempText);
+    }
+
     private void initUserId() {
         // 没有root的要先赋予权限
         execCMD("chmod -R 777 " + SP_WXW);
         userId = getUserId();
+        Log.i("userId", "initUserId: userId -------- "+ userId );
+
     }
 
     private void execCMD(String paramString) {
@@ -430,14 +453,19 @@ public class MainActivity extends AppCompatActivity {
             process.waitFor();
             object = process.exitValue();
         } catch (IOException e) {
+            Log.i("userId", "execCMD  IOException: "+e.getMessage());
             e.printStackTrace();
         } catch (InterruptedException e) {
+            Log.i("userId", "execCMD  InterruptedException: "+e.getMessage());
             e.printStackTrace();
         }
     }
 
     private int getUserId() {
+        Log.i("userId", "进来了getUserId方法");
         File file = new File(SP_XWX_PATH);
+        Log.i("userId", "1");
+        Log.i("userId", "SP_XWX_PATH  --- "+  SP_XWX_PATH);
         try {
             FileInputStream fis = new FileInputStream(file);
             // 利用dom4j里面的类
@@ -445,16 +473,22 @@ public class MainActivity extends AppCompatActivity {
             Document document = saxReader.read(fis);
             Element root = document.getRootElement();
             List<Element> list = root.elements();
-
+            Log.i("userId", "2");
+            Log.i("userId", "list ---- "+list);
             for (Element element : list){
                 if ("userid".equals(element.attributeValue("name"))){
+                    Log.i("userId", "找到userid了  --- "+  element.attributeValue("name"));
                     String currentUin = element.attributeValue("value");
+
+                    Log.i("userId", "它的值currentUin  --- "+currentUin);
                     return Integer.parseInt(currentUin);
                 }
             }
         } catch (FileNotFoundException e) {
+            Log.i("userId", "FileNotFoundException  e --- "+e.getMessage());
             e.printStackTrace();
         } catch (DocumentException e) {
+            Log.i("userId", "DocumentException  e --- "+e.getMessage());
             e.printStackTrace();
         }
         return 0;
@@ -547,7 +581,7 @@ public class MainActivity extends AppCompatActivity {
 //                            SystemClock.sleep(5000);
                             sleepSecondRandom(5,10);
                             startWechat();
-                            sleepSecondRandom(5,10);
+                            sleepSecondRandom(15,20);
 //                            SystemClock.sleep(20000);
                             if (startFinish()){
                                 break;
@@ -597,7 +631,7 @@ public class MainActivity extends AppCompatActivity {
         do {
             AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
-            if (bb - aa >= 13000){
+            if (bb - aa >= 8000){
                 Log.e("xyz","sss");
                 return false;
 
@@ -652,7 +686,7 @@ public class MainActivity extends AppCompatActivity {
         // 请求数据
         JSONObject phoneObject = null;
         JSONArray array  = null;
-        while (true) {
+        while ( true ) {
 
             // TODO  后台获取的接口
             if (translate == 1){
@@ -682,7 +716,7 @@ public class MainActivity extends AppCompatActivity {
         if (array!=null && array.length() >0){
             for (int i = 0; i < array.length(); i++) {
                 String s = array.getString(i);
-                if (!s.equals("")&& s!=null){
+                if ( s!=null && !s.equals("")){
                     list.add(array.getString(i));
                 }
                 Log.i("list data",array.getString(i));
@@ -703,7 +737,7 @@ public class MainActivity extends AppCompatActivity {
             // 上传到服务器
             uploadToService();  // kg
 
-            //TODO 清空数据库中的表数据
+            // 清空数据库中的表数据
             if(!hasData() && !hasStatusZero()){
                 db = helper.getReadableDatabase();
                 db.execSQL("delete from "+TABLE_NAME);
@@ -1863,7 +1897,7 @@ public class MainActivity extends AppCompatActivity {
         do {
             AccessibilityNodeInfo root = getRoot();
             long bb =  System.currentTimeMillis();
-            if (bb - aa >= 13000){
+            if (bb - aa >= 8000){
                 Log.e("xyz","sss99");
                 throw new MyTimeoutException("网络异常,没有获取到具体的场景模式99");
             }
@@ -1944,7 +1978,7 @@ public class MainActivity extends AppCompatActivity {
         long aa = System.currentTimeMillis();
         do {
             long bb =  System.currentTimeMillis();
-            if (bb - aa >= 13000) {
+            if (bb - aa >= 8000) {
                 Log.e("xyz", "sss00");
                 throw new MyTimeoutException("输入手机号失败");
             }

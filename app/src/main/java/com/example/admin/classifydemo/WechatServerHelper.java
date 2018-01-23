@@ -337,6 +337,7 @@ public class WechatServerHelper {
 	/**
 	 * 每添加一个好友，上传到后台，主要用于AddFriends相关的Job
 	 */
+
 	public boolean phoneStatusChangeBat(int userid, int taskchn_id, JSONArray userInfos, int status) throws IOException, JSONException {
 		JSONObject postData = new JSONObject();
 		postData.put("userid", userid);
