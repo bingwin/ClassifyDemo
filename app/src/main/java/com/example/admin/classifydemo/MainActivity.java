@@ -131,13 +131,13 @@ public class MainActivity extends AppCompatActivity {
     private int userId;
 
     // TODO spaceID , 过滤为 1 (客户 155)或 0 ，翻译为 -1,
-    private static final int spaceId = 1;
+    private static final int spaceId = 0;
 
     // TODO 翻译模式 1 为开, 0 为关，即过滤
     private static final int translate = 0;
 
     // TODO 每次获取列表的数量
-    private static final int num = 50;
+    private static final int num = 1000;
 
     private TextView tvCurrentPhone;
 
@@ -716,13 +716,12 @@ public class MainActivity extends AppCompatActivity {
         if (array!=null && array.length() >0){
             for (int i = 0; i < array.length(); i++) {
                 String s = array.getString(i);
-                if ( s!=null && !s.equals("")){
+                if ( s!=null && !s.equals("") ){
                     list.add(array.getString(i));
                 }
                 Log.i("list data",array.getString(i));
             }
         }
-
 
 
         if (list == null){
@@ -1037,7 +1036,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             mList3.clear();
-        }else if (i == 0){
+        }else {
             Log.i("uploadToService","phoneExistenceBat 上传到服务器失败");
             Message msg = new Message();
             msg.what = 1;
@@ -1072,6 +1071,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
             String info = persons.get(i).getPhone();
+
+
+            // 如果不是手机号码，就直接修改数据库，将其设为不存在
+            if (!(info.length() == 11 && info.matches("[0-9]+")) ){
+                updateData(1, info);
+                mList1.add(info);
+                continue;
+            }
 
 
             setCnt(0);
@@ -1267,6 +1274,9 @@ public class MainActivity extends AppCompatActivity {
                                 finishAndReturn();
                             }
                             break;
+
+
+
 
                     }
 
@@ -1749,8 +1759,6 @@ public class MainActivity extends AppCompatActivity {
     private void updateData(int type,String info){
         db = helper.getReadableDatabase();
         if (type == 1){         // 用户不存在
-//            UPDATE Person SET Address = 'Zhongshan 23', City = 'Nanjing'
-//            WHERE LastName = 'Wilson'
             String  s = "update "+TABLE_NAME+" set status = 1 where phone = '"+info+"'";
             db.execSQL(s);
         }else if (type == 2){   // 用户状态异常
@@ -2153,7 +2161,6 @@ public class MainActivity extends AppCompatActivity {
                 filePath = uri.getPath();
                 tvFilePath.setText(filePath);
                 Log.i(TAG, "filePath = " + filePath);
-                return;
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {     // 4.4以后
                 filePath = getPathKitKat(this, uri);
